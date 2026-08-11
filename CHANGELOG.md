@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Industry-ready documentation:** professional README, [docs/ROADMAP.md](docs/ROADMAP.md) (M0–M10),
+  [docs/BUILD.md](docs/BUILD.md), [docs/INSTALL.md](docs/INSTALL.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+- Expanded hardware compatibility matrix: [docs/hardware/README.md](docs/hardware/README.md).
+- Application packaging specification: [docs/packages/README.md](docs/packages/README.md).
+- Atomic update architecture index and sub-documents: [docs/updates/](docs/updates/).
+- LICENSE header guidance in [CONTRIBUTING.md](CONTRIBUTING.md).
+- **M12 atomic update skeleton:** `aether-updater` crate with A/B partition types, signed manifest verification stub, and rollback API (`system/updater/`).
+- Update architecture docs: `docs/updates/` (A/B partitions, signed verification, rollback API).
+- [ADR-0009](docs/adr/ADR-0009-atomic-update-architecture.md) — atomic update architecture decision.
+- Host update validation script: `scripts/update-check.ps1`.
+- **M2 CPU bring-up:** GDT, IDT, legacy PIC remap, and PIT timer interrupt wired into kernel boot (`arch/x86_64/`).
+- Host integration tests for GDT descriptor math and IDT gate layout (`tests/arch_gdt.rs`, `tests/arch_idt.rs`).
+- Local CI gate scripts: `scripts/ci-check.ps1`, `scripts/ci-check.sh` (fmt, clippy, tests, bare-metal builds).
+- Testing strategy documentation in `tests/README.md`.
 - **M1 boot path:** UEFI boot loader crate (`aether-boot`) for `x86_64-unknown-uefi`.
 - Bare-metal kernel binary (`aether-kernel` / `kernel.elf`) with COM1 serial output.
 - `BootInfo` handoff structure in `aether-types` (magic, version, memory-map pointer, serial info).
@@ -19,14 +33,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- [ARCHITECTURE.md](ARCHITECTURE.md) — subsystem map through M10; shipped vs planned markers updated for M2.
+- [SECURITY.md](SECURITY.md) and [docs/security/threat-model.md](docs/security/threat-model.md) — M2 maturity, interrupt handling, update/packaging scaffolds.
+- [docs/architecture/README.md](docs/architecture/README.md) — M2 shipped status for CPU/arch subsystem.
+- QEMU smoke test expects M2 serial banner (`Aether OS M2: GDT/IDT/interrupts initialized`); timer tick lines are optional.
 - Kernel crate now builds a `bare-metal` binary in addition to the M0 host stub library.
 - `make run` launches the QEMU smoke test when scripts and dependencies are available.
 
 ### Notes
 
 - **QEMU serial boot works** when `qemu-system-x86_64` and OVMF are installed (verified in CI; local run requires same).
-- **Real PC hardware boot is untested.** Memory-map copy in `BootInfo` is a stub until M2.
-- GDT, IDT, paging, and heap remain planned for M2/M3.
+- **M2 host tests** cover GDT/IDT layout encoding; IRQ/timer delivery is validated via QEMU smoke when run.
+- **Real PC hardware boot is untested.** Memory-map copy in `BootInfo` remains a stub.
+- Paging and heap remain planned for M3+.
 
 ## [0.1.0] - 2026-08-11
 

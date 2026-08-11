@@ -1,180 +1,213 @@
 # Aether OS
 
-A security-first, Rust-native operating system for **x86_64**, bootable via **UEFI**.
-M1 delivers a minimal UEFI boot path, bare-metal kernel entry, and serial output in QEMU.
+[![CI](https://github.com/D1bakar/ather-os/actions/workflows/ci.yml/badge.svg)](https://github.com/D1bakar/ather-os/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Rust 1.85](https://img.shields.io/badge/rust-1.85-orange.svg)](rust-toolchain.toml)
+[![Milestone](https://img.shields.io/badge/milestone-M2-yellow.svg)](docs/ROADMAP.md)
+
+**Aether OS** is a security-first, Rust-native operating system for **x86_64**, bootable via **UEFI**.
+The project is in **early development**. M2 delivers CPU bring-up — GDT, IDT, legacy PIC remapping,
+PIT timer ticks, and serial diagnostics under QEMU. There is no user space, no paging, and no syscall
+dispatch yet.
+
+> **Honest status:** This is research and engineering infrastructure, not a daily-driver OS.
+> See the [milestone table](#milestones-m0m10) for what is shipped vs planned.
 
 ## Why Aether OS?
 
-- **Security-first design** — capability-oriented access control and least privilege (design intent; see [SECURITY.md](SECURITY.md)).
-- **Memory safety** — Rust with `#![forbid(unsafe_code)]` in shared crates; kernel `unsafe` requires documented invariants.
-- **Explicit architecture** — numbered ADRs, threat model, and honest milestone tracking.
-- **Stable syscall ABI** — numbers and register layouts in `aether-abi` (scaffold only until M4).
+| Principle | Status |
+|-----------|--------|
+| **Security-first design** — capability-oriented access control, least privilege | Design intent ([SECURITY.md](SECURITY.md), [ADR-0004](docs/adr/ADR-0004-capability-security-model.md)) |
+| **Memory safety** — `#![forbid(unsafe_code)]` in shared crates; documented kernel `unsafe` | Enforced in `crates/` |
+| **Explicit architecture** — numbered ADRs, threat model, honest milestone tracking | Shipped (M0) |
+| **Stable syscall ABI** — numbers and register layouts in `aether-abi` | Scaffold only until M5 |
+| **Reproducible engineering** — pinned toolchain, CI gates, local parity scripts | Shipped (M0–M2) |
 
-## Current status (M1)
+## Milestones (M0–M10)
 
-| Capability | Status |
-|------------|--------|
-| Workspace and shared crates | Shipped |
-| UEFI boot loader (`aether-boot`) | Shipped |
-| Bare-metal kernel entry + serial | Shipped |
-| QEMU boot (serial smoke test) | Verified when QEMU + OVMF installed |
-| Physical / virtual memory manager | Planned M2 |
-| Scheduler / syscalls | Planned M3–M4 |
+| Milestone | Scope | Status | Notes |
+|-----------|-------|--------|-------|
+| **M0** | Workspace, shared crates, ADRs, CI, contributor docs | **Shipped** | `aether-types`, `aether-abi`, `aether-logger` |
+| **M1** | UEFI boot loader, bare-metal kernel entry, serial, QEMU smoke | **Shipped** | Real PC hardware **untested** |
+| **M2** | GDT, IDT, 8259 PIC, PIT timer, exception diagnostics | **Shipped** | APIC migration planned M4 |
+| **M3** | Physical/virtual memory, page tables, kernel heap | Planned | UEFI memory-map copy stubbed |
+| **M4** | Scheduler, preemption, context switch, APIC timer | Planned | |
+| **M5** | Syscall dispatch, user-mode segments, capability scaffold | Planned | ABI types exist in M0 |
+| **M6** | VFS (tmpfs, devfs), user init, minimal shell | Planned | |
+| **M7** | Networking stack, socket syscalls | Planned | |
+| **M8** | Framebuffer / basic graphics, input (keyboard) | Planned | |
+| **M9** | Application packaging, package manager | Planned (host scaffold) | Spec + `system/pkgmgr/` skeleton; no runtime install |
+| **M10** | Signed atomic updates, release images, real-hardware tier | Planned (host scaffold) | Spec + `system/updater/` skeleton; no runtime apply |
 
-**What works:** Build `BOOTX64.EFI` + `kernel.elf`, assemble a FAT ESP, boot under QEMU + OVMF, and print `Aether OS kernel started` on serial.
+Full milestone definitions: [docs/ROADMAP.md](docs/ROADMAP.md).
 
-**What does not work yet:** Real PC hardware boot (untested), full UEFI memory-map handoff, GDT/IDT, paging, heap, or user space.
+## What works today (M2)
+
+- Build UEFI boot loader (`BOOTX64.EFI`) and bare-metal `kernel.elf`
+- Boot under **QEMU + OVMF** with serial output
+- Initialize GDT, 256-entry IDT, remapped 8259 PIC, PIT at ~100 Hz
+- Periodic `[timer] tick N` messages on COM1 (~1 s intervals)
+- Host integration tests for GDT/IDT layout encoding
+- CI quality gate (fmt, clippy, tests, cross-target builds)
+
+## What does not work yet
+
+- Real PC hardware boot (untested)
+- Paging, heap, physical frame allocator
+- APIC-based interrupt delivery
+- Scheduler, syscalls, user space
+- Filesystem, networking, graphics
+- Signed updates or package distribution
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for kernel layout, memory/process models (design),
-boot chain, and filesystem/update strategies.
-
-Architecture Decision Records: [docs/adr/](docs/adr/)
-
 ```mermaid
 graph TB
-    subgraph userspace["User space (planned)"]
+    subgraph userspace["User space (planned M6)"]
         APP[Applications]
-        LIBC[libc]
+        LIBC[libc / runtime]
     end
 
-    subgraph kernelspace["Kernel (M1 serial only)"]
+    subgraph kernelspace["Kernel space (M2 shipped)"]
         KERN[aether-kernel]
+        ARCH[arch/x86_64 — GDT IDT PIC PIT]
+        SER[serial console]
     end
 
-    subgraph boot["Boot (M1)"]
-        BL[UEFI boot loader]
+    subgraph bootchain["Boot chain (M1 shipped)"]
+        UEFI[UEFI firmware]
+        BL[aether-boot]
     end
 
-    subgraph m0["Foundation"]
+    subgraph foundation["Foundation (M0 shipped)"]
         TYPES[aether-types]
         ABI[aether-abi]
         LOG[aether-logger]
     end
 
-    BL --> KERN
+    UEFI --> BL
+    BL -->|BootInfo| KERN
+    KERN --> ARCH
+    KERN --> SER
     APP --> LIBC
-    LIBC -->|syscall| KERN
+    LIBC -->|syscall planned M5| KERN
     KERN --> TYPES
-    LIBC --> ABI
     KERN --> ABI
     KERN --> LOG
 ```
+
+Detailed design: [ARCHITECTURE.md](ARCHITECTURE.md) · ADRs: [docs/adr/](docs/adr/) · Subsystem index: [docs/architecture/README.md](docs/architecture/README.md)
 
 ## Repository layout
 
 ```
 .
-├── boot/                  # UEFI boot loader (aether-boot)
-├── kernel/                # aether-kernel crate
+├── boot/                  # UEFI boot loader (aether-boot) — M1 shipped
+├── kernel/                # aether-kernel + arch/x86_64/ — M2 shipped
 ├── crates/
 │   ├── aether-types/      # Addresses, BootInfo, errors
-│   ├── aether-abi/        # Syscall ABI
+│   ├── aether-abi/        # Syscall ABI scaffold
 │   └── aether-logger/     # Structured logging
-├── scripts/               # build-boot, run-qemu
-├── tests/                 # QEMU integration smoke test
+├── user/                  # User-space programs (future M6)
+├── system/                # Init, daemons (future M6)
+├── drivers/               # Driver sources (future)
+├── scripts/               # build-boot, run-qemu, ci-check, setup-dev
+├── tests/                 # QEMU integration + arch layout tests
 ├── docs/
 │   ├── adr/               # Architecture Decision Records
-│   └── hardware/          # Hardware compatibility matrix
-└── .github/workflows/     # CI
+│   ├── ROADMAP.md         # Milestone plan M0–M10
+│   ├── BUILD.md           # Build reference
+│   ├── INSTALL.md         # Installation guide
+│   ├── DEPLOYMENT.md      # Deployment and release
+│   ├── hardware/          # Hardware compatibility matrix
+│   ├── packages/          # Application packaging spec
+│   ├── updates/           # Atomic update architecture
+│   └── security/          # Threat model
+└── .github/workflows/     # CI and release
 ```
 
-## Prerequisites
+## Install
 
-- **Rust 1.85.0** — via [rust-toolchain.toml](rust-toolchain.toml) (`rust-src` required for kernel `build-std`)
-- **rustfmt** and **clippy**
-- **QEMU** (`qemu-system-x86_64`) and **OVMF** — for `make run` / QEMU smoke test
-- **GNU Make** or **PowerShell**
+See [docs/INSTALL.md](docs/INSTALL.md) for platform-specific prerequisites (Rust, QEMU, OVMF).
 
-### Windows (PowerShell)
+**Minimum requirements:**
 
-```powershell
-.\scripts\build-boot.ps1          # BOOTX64.EFI + kernel.elf → build/esp/
-.\scripts\run-qemu.ps1            # Boot in QEMU (requires OVMF)
-.\scripts\build.ps1 check         # fmt, clippy, test, build
-```
+| Component | Version |
+|-----------|---------|
+| Rust | 1.85.0 ([rust-toolchain.toml](rust-toolchain.toml)) |
+| Targets | `x86_64-unknown-uefi`, `x86_64-unknown-none` |
+| Components | `rustfmt`, `clippy`, `rust-src`, `llvm-tools-preview` |
+| QEMU (optional) | `qemu-system-x86_64` + OVMF for boot smoke test |
 
-### Unix / Make
+## Quick start
 
 ```bash
-make run                          # runs scripts/run-qemu.sh
-bash scripts/build-boot.sh
-make test
+# One-time setup
+make setup          # or: bash scripts/setup-dev.sh
+
+# Build host workspace + boot artifacts
+make boot
+
+# Boot in QEMU (serial → build/qemu-serial.log)
+make run
+
+# Full CI gate locally
+bash scripts/ci-check.sh
 ```
 
-## Build and boot
-
-### Cross targets
-
-```bash
-rustup target add x86_64-unknown-uefi x86_64-unknown-none
-```
-
-### Boot loader + kernel
+**Windows (PowerShell):**
 
 ```powershell
+.\scripts\setup-dev.ps1
 .\scripts\build-boot.ps1
-```
-
-This produces:
-
-- `build/esp/EFI/BOOT/BOOTX64.EFI`
-- `build/esp/aether/kernel.elf`
-
-Bare-metal kernel build uses `RUSTC_BOOTSTRAP=1` and `-Z build-std=core,compiler_builtins`.
-
-### QEMU + OVMF
-
-Install QEMU and OVMF, then place firmware files under `ovmf/` **or** use system paths:
-
-| File | Common locations |
-|------|------------------|
-| `OVMF_CODE.fd` | `ovmf/`, `/usr/share/OVMF/`, `%ProgramFiles%\qemu\share\` |
-| `OVMF_VARS.fd` | same |
-
-```powershell
 .\scripts\run-qemu.ps1
+.\scripts\ci-check.ps1
 ```
 
-Serial output is written to `build/qemu-serial.log`. The smoke test passes when the log contains `Aether OS kernel started`.
+**Expected serial output (M2):**
 
-Run the integration test (ignored by default in CI quality gate):
-
-```bash
-cargo test -p aether-integration-tests -- --ignored
+```
+Aether OS kernel started
+BootInfo OK
+Aether OS M2: GDT/IDT/interrupts initialized
+[timer] tick 100
+[timer] tick 200
+...
 ```
 
-### Host workspace checks
+More detail: [docs/BUILD.md](docs/BUILD.md) · [docs/development/getting-started.md](docs/development/getting-started.md)
 
-```bash
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-cargo build --workspace
-```
+## Documentation
 
-## Roadmap
-
-| Milestone | Scope | Status |
-|-----------|-------|--------|
-| **M0** | Foundation, docs, ADRs, shared crates, CI | Shipped |
-| **M1** | UEFI boot, minimal kernel, serial, QEMU boot | **Current** |
-| **M2** | Physical/virtual memory | Planned |
-| **M3** | Scheduler, preemption | Planned |
-| **M4** | Syscall dispatch | Planned |
-| **M5** | VFS (tmpfs, devfs) | Planned |
-| **M6** | User init, shell | Planned |
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System design — shipped vs planned subsystems |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Milestone plan M0–M10 |
+| [docs/BUILD.md](docs/BUILD.md) | Build targets, cross-compilation, CI parity |
+| [docs/INSTALL.md](docs/INSTALL.md) | Developer environment installation |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Release artifacts and deployment (future) |
+| [docs/hardware/README.md](docs/hardware/README.md) | Hardware compatibility matrix |
+| [SECURITY.md](SECURITY.md) | Vulnerability reporting and security policy |
+| [docs/security/threat-model.md](docs/security/threat-model.md) | Full threat model |
+| [docs/packages/README.md](docs/packages/README.md) | Application packaging specification |
+| [docs/updates/README.md](docs/updates/README.md) | Atomic update architecture |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution workflow |
+| [GOVERNANCE.md](GOVERNANCE.md) | Project governance |
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Governance: [GOVERNANCE.md](GOVERNANCE.md).
-Code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+All participants must follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
+Significant design changes require an [Architecture Decision Record](docs/adr/README.md).
 
 ## Security
 
-See [SECURITY.md](SECURITY.md) for the threat model and vulnerability reporting.
+Report vulnerabilities privately: **security@aether-os.dev** — do not use public GitHub issues.
+
+See [SECURITY.md](SECURITY.md) and [docs/security/threat-model.md](docs/security/threat-model.md).
 
 ## License
 
-[MIT License](LICENSE)
+[MIT License](LICENSE) — Copyright (c) 2026 Aether OS Contributors.
