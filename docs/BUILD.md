@@ -15,9 +15,12 @@ See also: [INSTALL.md](INSTALL.md) (prerequisites) · [DEPLOYMENT.md](DEPLOYMENT
 | Components | `rustfmt`, `clippy`, `rust-src`, `llvm-tools-preview` |
 | UEFI target | `x86_64-unknown-uefi` |
 | Kernel target | `x86_64-unknown-none` (requires `-Z build-std`) |
+| AArch64 kernel target (M13 scaffold) | `aarch64-unknown-none` — module stub only; **not bootable** |
 
 ```bash
 rustup target add x86_64-unknown-uefi x86_64-unknown-none
+# Optional — M13 prep; no boot path yet:
+rustup target add aarch64-unknown-none
 export RUSTC_BOOTSTRAP=1   # required for build-std
 ```
 
