@@ -22,6 +22,8 @@ Each ADR includes:
 | [ADR-0005](ADR-0005-syscall-abi-strategy.md) | Syscall ABI strategy | Accepted (design intent) |
 | [ADR-0006](ADR-0006-boot-architecture.md) | Boot architecture | Accepted (design intent) |
 | [ADR-0007](ADR-0007-reproducible-builds-intent.md) | Reproducible builds intent | Accepted (design intent) |
+| [ADR-0008](ADR-0008-interrupt-architecture.md) | x86_64 interrupt and timer architecture | Accepted — M2 shipped (PIC/PIT) |
+| [ADR-0009](ADR-0009-atomic-update-architecture.md) | Atomic A/B update architecture | Accepted — M12 skeleton |
 
 ## Historical document
 
