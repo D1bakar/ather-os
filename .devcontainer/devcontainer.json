@@ -1,0 +1,24 @@
+{
+  "name": "Aether OS",
+  "image": "mcr.microsoft.com/devcontainers/rust:1-bookworm",
+  "features": {},
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y qemu-system-x86 ovmf make && bash scripts/setup-dev.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "editorconfig.editorconfig"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "[rust]": {
+          "editor.defaultFormatter": "rust-lang.rust-analyzer"
+        },
+        "rust-analyzer.check.command": "clippy",
+        "rust-analyzer.cargo.allTargets": true
+      }
+    }
+  },
+  "remoteUser": "vscode"
+}

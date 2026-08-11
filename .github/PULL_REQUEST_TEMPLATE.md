@@ -13,7 +13,7 @@
 
 ## Milestone
 
-<!-- Which milestone does this contribute to? e.g. M0, M1 -->
+<!-- Which milestone does this contribute to? e.g. M0, M1, M2 -->
 
 ## Test Plan
 
@@ -23,7 +23,7 @@
 - [ ] `cargo clippy --workspace -- -D warnings`
 - [ ] `cargo test --workspace`
 - [ ] `cargo build --workspace`
-- [ ] QEMU boot test (M1+)
+- [ ] QEMU boot test (M1+; M2 expects GDT/IDT init + optional timer ticks)
 
 ## Checklist
 

@@ -1,6 +1,6 @@
 # Launch Aether OS in QEMU with OVMF and capture serial output.
 param(
-    [int]$TimeoutSeconds = 30,
+    [int]$TimeoutSeconds = 35,
     [switch]$NoBuild
 )
 
@@ -75,7 +75,7 @@ $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 while ((Get-Date) -lt $deadline) {
     Start-Sleep -Milliseconds 250
     if ($proc.HasExited) { break }
-    if ((Test-Path $LogFile) -and (Select-String -Path $LogFile -Pattern "Aether OS kernel started" -Quiet)) {
+    if ((Test-Path $LogFile) -and (Select-String -Path $LogFile -Pattern "Aether OS M2: GDT/IDT/interrupts initialized" -Quiet)) {
         break
     }
 }
@@ -92,9 +92,9 @@ Write-Host "--- serial log ---"
 Get-Content $LogFile
 Write-Host "------------------"
 
-if (Select-String -Path $LogFile -Pattern "Aether OS kernel started" -Quiet) {
+if (Select-String -Path $LogFile -Pattern "Aether OS M2: GDT/IDT/interrupts initialized" -Quiet) {
     Write-Host "QEMU boot smoke test: PASS"
     exit 0
 }
 
-Write-Error "Expected serial output not found: 'Aether OS kernel started'"
+Write-Error "Expected serial output not found: 'Aether OS M2: GDT/IDT/interrupts initialized'"

@@ -4,7 +4,9 @@
 
 # IDE
 .idea/
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 *.swp
 *.swo
 *~
@@ -43,3 +45,9 @@ lcov.info
 # Temporary
 /tmp/
 *.tmp
+
+# Local tool cache
+.tools/
+Cargo.toml.m12
+Cargo.toml.wip
+

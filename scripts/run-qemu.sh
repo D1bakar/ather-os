@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-TIMEOUT="${TIMEOUT:-30}"
+TIMEOUT="${TIMEOUT:-35}"
 NO_BUILD=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -74,7 +74,7 @@ QEMU_PID=$!
 
 deadline=$((SECONDS + TIMEOUT))
 while (( SECONDS < deadline )); do
-    if [[ -f "$LOG_FILE" ]] && grep -q "Aether OS kernel started" "$LOG_FILE"; then
+    if [[ -f "$LOG_FILE" ]] && grep -q "Aether OS M2: GDT/IDT/interrupts initialized" "$LOG_FILE"; then
         break
     fi
     if ! kill -0 "$QEMU_PID" 2>/dev/null; then
@@ -95,10 +95,10 @@ echo "--- serial log ---"
 cat "$LOG_FILE"
 echo "------------------"
 
-if grep -q "Aether OS kernel started" "$LOG_FILE"; then
+if grep -q "Aether OS M2: GDT/IDT/interrupts initialized" "$LOG_FILE"; then
     echo "QEMU boot smoke test: PASS"
     exit 0
 fi
 
-echo "Expected serial output not found: 'Aether OS kernel started'" >&2
+echo "Expected serial output not found: 'Aether OS M2: GDT/IDT/interrupts initialized'" >&2
 exit 1
