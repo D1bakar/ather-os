@@ -28,6 +28,8 @@ pub enum ErrorCode {
     TimedOut = -9,
     /// Internal kernel error.
     Internal = -10,
+    /// Invalid user-space address or buffer bounds.
+    BadAddress = -11,
 }
 
 impl ErrorCode {
@@ -51,6 +53,8 @@ impl ErrorCode {
             -7 => Self::NotSupported,
             -8 => Self::Busy,
             -9 => Self::TimedOut,
+            -10 => Self::Internal,
+            -11 => Self::BadAddress,
             _ => Self::Internal,
         }
     }
@@ -70,6 +74,7 @@ impl fmt::Display for ErrorCode {
             Self::Busy => "Busy",
             Self::TimedOut => "TimedOut",
             Self::Internal => "Internal",
+            Self::BadAddress => "BadAddress",
         };
         write!(f, "{name} ({})", self.as_i32())
     }
