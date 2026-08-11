@@ -4,11 +4,13 @@ members = [
     "crates/aether-types",
     "crates/aether-abi",
     "crates/aether-logger",
+    "kernel",
 ]
 default-members = [
     "crates/aether-types",
     "crates/aether-abi",
     "crates/aether-logger",
+    "kernel",
 ]
 
 [workspace.package]
@@ -19,9 +21,10 @@ repository = "https://github.com/aether-os/aether-os"
 authors = ["Aether OS Contributors"]
 
 [workspace.dependencies]
-aether-types = { path = "crates/aether-types" }
+aether-types = { path = "crates/aether-types", default-features = false }
 aether-abi = { path = "crates/aether-abi" }
 aether-logger = { path = "crates/aether-logger" }
+aether-kernel = { path = "kernel" }
 
 [profile.dev]
 panic = "abort"

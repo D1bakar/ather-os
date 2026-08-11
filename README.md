@@ -1,162 +1,148 @@
 # Aether OS
 
-A modern, Rust-native operating system for x86_64, bootable via UEFI.
-
-Aether OS is designed from the ground up with memory safety, explicit architecture
-decision records, and a modular crate layout that separates shared types, the
-syscall ABI, and kernel subsystems into well-tested building blocks.
+A security-first, Rust-native operating system for **x86_64**, bootable via **UEFI**
+(planned M1). This repository contains the M0 engineering foundation: shared crates,
+documentation, architecture decision records, CI, and kernel stubs — **not a
+bootable OS yet**.
 
 ## Why Aether OS?
 
-- **Memory safety**: Written in Rust with `#![forbid(unsafe_code)]` in shared crates;
-  kernel code will use targeted `unsafe` with documented invariants.
-- **Modern boot path**: UEFI handoff with a clear separation between boot loader and kernel.
-- **Stable ABI**: Syscall numbers and register layouts defined in `aether-abi`.
-- **Structured logging**: Host-testable logging infrastructure ready for serial output in M1.
+- **Security-first design** — capability-oriented access control and least privilege (design intent; see [SECURITY.md](SECURITY.md)).
+- **Memory safety** — Rust with `#![forbid(unsafe_code)]` in shared crates; kernel `unsafe` requires documented invariants.
+- **Explicit architecture** — numbered ADRs, threat model, and honest milestone tracking.
+- **Stable syscall ABI** — numbers and register layouts in `aether-abi` (scaffold only until M4).
 
-## Current Capabilities (M0)
+## Current status (M0)
 
 | Capability | Status |
 |------------|--------|
-| Workspace & crate layout | ✅ |
-| Shared types (`aether-types`) | ✅ |
-| Syscall ABI (`aether-abi`) | ✅ |
-| Structured logger (`aether-logger`) | ✅ |
-| CI/CD pipelines | ✅ |
-| UEFI boot loader | ⏳ M1 |
-| Kernel | ⏳ M1 |
-| QEMU run target | ⏳ M1 |
+| Workspace and shared crates | Shipped |
+| Kernel stub (`aether-kernel`) | Shipped (host stub; bare metal M1) |
+| Documentation and ADRs | Shipped |
+| CI (fmt, clippy, test, build) | Shipped |
+| UEFI boot loader | Planned M1 |
+| Bootable kernel / QEMU run | Planned M1 |
+
+**The OS does not boot.** Do not expect `make run` to launch a working system until M1.
 
 ## Architecture
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for kernel layout, memory/process models (design),
+boot chain, and filesystem/update strategies.
+
+Architecture Decision Records: [docs/adr/](docs/adr/)
+
 ```mermaid
 graph TB
-    subgraph "User Space (future)"
+    subgraph userspace["User space (planned)"]
         APP[Applications]
-        LIBC[libc / userland]
+        LIBC[libc]
     end
 
-    subgraph "Kernel Space (M1+)"
-        KERN[Aether Kernel]
-        SCHED[Scheduler]
-        MM[Memory Manager]
-        VFS[Virtual FS]
+    subgraph kernelspace["Kernel (planned M1+)"]
+        KERN[aether-kernel]
     end
 
-    subgraph "Boot (M1+)"
-        BOOT[UEFI Boot Loader]
+    subgraph boot["Boot (planned M1)"]
+        BL[UEFI boot loader]
     end
 
-    subgraph "Foundation (M0)"
+    subgraph m0["M0 foundation"]
         TYPES[aether-types]
         ABI[aether-abi]
         LOG[aether-logger]
     end
 
+    BL --> KERN
     APP --> LIBC
-    LIBC -->|SYSCALL| KERN
-    KERN --> SCHED
-    KERN --> MM
-    KERN --> VFS
-    BOOT -->|handoff| KERN
-    KERN --> LOG
+    LIBC -->|syscall| KERN
     KERN --> TYPES
     LIBC --> ABI
     KERN --> ABI
+    KERN --> LOG
 ```
 
-See [docs/architecture/](docs/architecture/) for detailed decision records.
-
-## Repository Layout
+## Repository layout
 
 ```
-aether-os/
+.
 ├── boot/                  # UEFI boot loader (M1)
-├── kernel/                # Monolithic kernel (M1)
+├── kernel/                # aether-kernel crate (M0 stub)
 ├── crates/
-│   ├── aether-types/      # Shared address, error, page types
-│   ├── aether-abi/        # Syscall numbers and register ABI
+│   ├── aether-types/      # Addresses, errors, page flags
+│   ├── aether-abi/        # Syscall ABI
 │   └── aether-logger/     # Structured logging
+├── user/                  # User programs (future)
+├── system/                # System config (future)
+├── drivers/               # Drivers (future)
+├── libs/                  # User-space libs (future)
+├── tools/                 # Host tools
+├── tests/                 # Integration tests (future)
 ├── docs/
-│   └── architecture/      # Architecture Decision Records
+│   ├── adr/               # Architecture Decision Records
+│   └── hardware/          # Hardware compatibility matrix
 ├── scripts/               # Build helpers
-├── .github/               # CI, issue templates, PR template
-├── Cargo.toml             # Workspace root
-├── Makefile               # Build orchestration
-└── README.md
+└── .github/workflows/     # CI
 ```
 
 ## Prerequisites
 
-- **Rust 1.85.0** (pinned via `rust-toolchain.toml`)
-- **rustfmt** and **clippy** (installed automatically by rustup)
-- **QEMU** (required from M1 onward for `make run`)
-- **OVMF** UEFI firmware (required from M1 onward)
-- **GNU Make** or **NMake** on Windows
+- **Rust 1.85.0** — installed automatically via [rustup](https://rustup.rs/) and [rust-toolchain.toml](rust-toolchain.toml)
+- **rustfmt** and **clippy** — installed with the pinned toolchain
+- **GNU Make** or **PowerShell** for build scripts
+- **QEMU** and **OVMF** — required from **M1** onward for `make run`
 
-## Build
+### Windows (PowerShell)
+
+```powershell
+.\scripts\build.ps1 check   # fmt, clippy, test, build
+.\scripts\build.ps1 build
+```
+
+### Unix / Make
 
 ```bash
-# Build all workspace crates
+make test    # fmt, clippy, test
 make build
+```
 
-# Or directly with Cargo
+## Build and test
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
 cargo build --workspace
 ```
 
-## Run
-
-> **Note**: Boot is not yet implemented. `make run` prints instructions for M1.
+### Kernel bare-metal build (M1 path — not required for M0 CI)
 
 ```bash
-make run
-# Expected output: message explaining M1 boot target is required
-```
-
-## Test
-
-```bash
-make test
-
-# Or directly
-cargo test --workspace
-cargo clippy --workspace -- -D warnings
-cargo fmt --check
+rustup target add x86_64-unknown-none
+cargo build -p aether-kernel --no-default-features --target x86_64-unknown-none
 ```
 
 ## Roadmap
 
 | Milestone | Scope | Status |
 |-----------|-------|--------|
-| **M0** | Repository foundation, shared crates, CI, docs | ✅ Current |
-| **M1** | UEFI boot loader, minimal kernel, serial output, QEMU boot | Planned |
-| **M2** | Physical memory manager, virtual memory, page tables | Planned |
-| **M3** | Process scheduler, context switching | Planned |
-| **M4** | Syscall dispatch, basic file I/O | Planned |
-| **M5** | Virtual filesystem (tmpfs + devfs) | Planned |
-| **M6** | User-space init, shell | Planned |
-
-### M0 Plan
-
-M0 establishes the professional foundation:
-
-- Cargo workspace with `aether-types`, `aether-abi`, `aether-logger`
-- Toolchain pinning (`rust-toolchain.toml`, `rustfmt.toml`, `clippy.toml`)
-- Makefile with `build`, `run`, `test`, `clean` targets
-- GitHub Actions CI (fmt, clippy, test, build)
-- Architecture Decision Record ([001-initial-decisions.md](docs/architecture/001-initial-decisions.md))
-- Contributing, security, and license policies
-- Skeleton `boot/` and `kernel/` directories with M1 placeholders
+| **M0** | Foundation, docs, ADRs, shared crates, CI | Current |
+| **M1** | UEFI boot, minimal kernel, serial, QEMU boot | Next |
+| **M2** | Physical/virtual memory | Planned |
+| **M3** | Scheduler, preemption | Planned |
+| **M4** | Syscall dispatch | Planned |
+| **M5** | VFS (tmpfs, devfs) | Planned |
+| **M6** | User init, shell | Planned |
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, commit conventions,
-and code review expectations.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Governance: [GOVERNANCE.md](GOVERNANCE.md).
+Code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Security
 
-See [SECURITY.md](SECURITY.md) for vulnerability reporting.
+See [SECURITY.md](SECURITY.md) for the threat model and vulnerability reporting.
 
 ## License
 
-Licensed under the [MIT License](LICENSE).
+[MIT License](LICENSE)

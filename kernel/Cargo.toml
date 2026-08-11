@@ -1,0 +1,22 @@
+[package]
+name = "aether-kernel"
+description = "Aether OS kernel (M0 stub; bare-metal entry in M1)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[features]
+default = ["host-stub"]
+# M0: compile and test on the host CI runner.
+host-stub = ["aether-types/std"]
+# M1: build with --no-default-features --target x86_64-unknown-none
+bare-metal = []
+
+[lib]
+
+[dependencies]
+aether-types = { workspace = true, default-features = false }
+
+[dev-dependencies]

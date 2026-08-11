@@ -9,7 +9,7 @@ The UEFI boot loader will:
 3. Exit boot services.
 4. Jump to the kernel entry point with a `BootInfo` handoff structure.
 
-See [ADR 001](docs/architecture/001-initial-decisions.md) for the boot strategy.
+See [ADR-0006](../docs/adr/ADR-0006-boot-architecture.md) for the boot strategy.
 
 ## M1 Deliverables
 

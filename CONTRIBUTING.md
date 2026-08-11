@@ -51,7 +51,8 @@ Examples:
 ## Architecture Decisions
 
 Significant design choices must be documented as Architecture Decision Records
-(ADRs) in `docs/architecture/`. Use the numbered format: `NNN-short-title.md`.
+(ADRs) in `docs/adr/`. Use the numbered format: `ADR-NNNN-short-title.md`.
+See [docs/adr/README.md](docs/adr/README.md) for the index and template.
 
 ## Testing
 

@@ -1,5 +1,8 @@
 # ADR 001: Initial Architecture Decisions
 
+> **Note:** This consolidated document predates the numbered ADR series. See
+> [docs/adr/](../adr/) for individual ADR-0001 through ADR-0007 records.
+
 **Status:** Accepted  
 **Date:** 2026-08-11  
 **Milestone:** M0

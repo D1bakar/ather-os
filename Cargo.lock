@@ -10,6 +10,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "aether-kernel"
+version = "0.1.0"
+dependencies = [
+ "aether-types",
+]
+
+[[package]]
 name = "aether-logger"
 version = "0.1.0"
 
