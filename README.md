@@ -3,12 +3,12 @@
 [![CI](https://github.com/D1bakar/ather-os/actions/workflows/ci.yml/badge.svg)](https://github.com/D1bakar/ather-os/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust 1.85](https://img.shields.io/badge/rust-1.85-orange.svg)](rust-toolchain.toml)
-[![Milestone](https://img.shields.io/badge/milestone-M4-yellow.svg)](docs/ROADMAP.md)
+[![Milestone](https://img.shields.io/badge/milestone-M5-yellow.svg)](docs/ROADMAP.md)
 
 **Aether OS** is a security-first, Rust-native operating system for **x86_64**, bootable via **UEFI**.
-The project is in **early development**. M4 delivers a round-robin kernel scheduler with preemptive
-timer ticks, context switching, and idle + worker kernel threads under QEMU. User mode and syscalls
-remain planned for M5+.
+The project is in **early development**. M5 delivers syscall dispatch via the `SYSCALL` instruction,
+userspace pointer validation, ring-3 GDT segments, and a capability enforcement scaffold integrated
+with the M4 scheduler.
 
 > **Honest status:** This is research and engineering infrastructure, not a daily-driver OS.
 > See the [milestone table](#milestones-m0m10) for what is shipped vs planned.
@@ -20,7 +20,7 @@ remain planned for M5+.
 | **Security-first design** — capability-oriented access control, least privilege | Design intent ([SECURITY.md](SECURITY.md), [ADR-0004](docs/adr/ADR-0004-capability-security-model.md)) |
 | **Memory safety** — `#![forbid(unsafe_code)]` in shared crates; documented kernel `unsafe` | Enforced in `crates/` |
 | **Explicit architecture** — numbered ADRs, threat model, honest milestone tracking | Shipped (M0) |
-| **Stable syscall ABI** — numbers and register layouts in `aether-abi` | Scaffold only until M5 |
+| **Stable syscall ABI** — numbers and register layouts in `aether-abi` | Shipped (M5 dispatch + validation) |
 | **Reproducible engineering** — pinned toolchain, CI gates, local parity scripts | Shipped (M0–M2) |
 
 ## Milestones (M0–M10)
@@ -32,7 +32,7 @@ remain planned for M5+.
 | **M2** | GDT, IDT, 8259 PIC, PIT timer, exception diagnostics | **Shipped** | APIC migration planned M4+ |
 | **M3** | Physical/virtual memory, page tables, kernel heap | **Shipped** | Host-tested frame allocator; QEMU paging smoke optional |
 | **M4** | Scheduler, preemption, context switch, kernel threads | **Shipped** | PIT-driven preemption; APIC timer still planned |
-| **M5** | Syscall dispatch, user-mode segments, capability scaffold | Planned | ABI types exist in M0 |
+| **M5** | Syscall dispatch, user-mode segments, capability scaffold | **Shipped** | MSR `SYSCALL` entry; host-tested validation |
 | **M6** | VFS (tmpfs, devfs), user init, minimal shell | Planned | |
 | **M7** | Networking stack, socket syscalls | Planned | |
 | **M8** | Framebuffer / basic graphics, input (keyboard) | Planned | |
@@ -41,23 +41,25 @@ remain planned for M5+.
 
 Full milestone definitions: [docs/ROADMAP.md](docs/ROADMAP.md).
 
-## What works today (M4)
+## What works today (M5)
 
 - Build UEFI boot loader (`BOOTX64.EFI`) and bare-metal `kernel.elf`
 - Boot under **QEMU + OVMF** with serial output
-- Initialize GDT, 256-entry IDT, remapped 8259 PIC, PIT at ~100 Hz
+- Initialize GDT (including ring-3 user segments), 256-entry IDT, remapped 8259 PIC, PIT at ~100 Hz
 - Physical frame allocator, identity + higher-half paging, kernel heap (M3)
-- Round-robin scheduler with idle + worker kernel threads and context switching
+- Round-robin scheduler with idle + worker kernel threads and context switching (M4)
+- `SYSCALL`/`SYSRET` MSR entry, dispatch table validation, userspace pointer checks, capability stubs
+- Stub syscalls: `write` (serial), `exit`, `yield`, `getpid`
 - Periodic `[timer] tick N` and `[worker] kernel thread tick` messages on COM1
-- Host integration tests for GDT/IDT layout encoding and scheduler queue topology
+- Host integration tests for GDT/IDT layout, syscall dispatch, pointer validation, and scheduler queue
 - CI quality gate (fmt, clippy, tests, cross-target builds)
 
 ## What does not work yet
 
 - Real PC hardware boot (untested)
 - APIC-based interrupt delivery (legacy PIC + PIT only)
-- User-mode processes and live syscall dispatch
-- Filesystem, networking, graphics (host-testable scaffolds exist)
+- Live ring-3 user processes (GDT + syscalls ready; M6 init/shell)
+- Full VFS mount, networking, graphics (host-testable scaffolds exist)
 - Signed updates or package distribution
 
 ## Architecture
@@ -91,7 +93,7 @@ graph TB
     KERN --> ARCH
     KERN --> SER
     APP --> LIBC
-    LIBC -->|syscall planned M5| KERN
+    LIBC -->|syscall M5| KERN
     KERN --> TYPES
     KERN --> ABI
     KERN --> LOG

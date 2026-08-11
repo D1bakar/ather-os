@@ -5,8 +5,12 @@ use aether_abi::{lookup_syscall, SyscallArgs, SyscallDescriptor, SyscallNumber};
 use aether_types::{CapabilityRights, ErrorCode, SecurityDefaults};
 
 use crate::cap::with_current_table;
+use crate::sched;
 use crate::security::audit::record_event;
 use aether_types::AuditEventKind;
+
+#[cfg(not(feature = "host-stub"))]
+use crate::serial;
 
 /// Dispatches a syscall by number, validating pointers and capabilities per the ABI table.
 #[must_use]
@@ -86,11 +90,44 @@ fn enforce_syscall_capabilities(desc: &SyscallDescriptor) -> Result<(), ErrorCod
 
 fn sys_exit(args: SyscallArgs) -> i64 {
     let _code = args.arg0 as i32;
+    sched::terminate_current();
     ErrorCode::Success.as_i64()
 }
 
-fn sys_write(_args: SyscallArgs) -> i64 {
-    ErrorCode::NotSupported.as_i64()
+/// Standard output file descriptor (serial console in M5).
+const FD_STDOUT: u64 = 1;
+/// Standard error file descriptor (serial console in M5).
+const FD_STDERR: u64 = 2;
+
+fn sys_write(args: SyscallArgs) -> i64 {
+    let fd = args.arg0;
+    let count = args.arg2;
+
+    if fd != FD_STDOUT && fd != FD_STDERR {
+        return ErrorCode::InvalidArgument.as_i64();
+    }
+    if count == 0 {
+        return 0;
+    }
+
+    #[cfg(feature = "host-stub")]
+    {
+        // Pointer validation already ran; host CI cannot dereference fake user addresses.
+        count as i64
+    }
+
+    #[cfg(not(feature = "host-stub"))]
+    {
+        let buf = args.arg1;
+        const MAX_WRITE: usize = 4096;
+        let len = count.min(MAX_WRITE as u64) as usize;
+        let mut scratch = [0u8; MAX_WRITE];
+        if copy_from_user(&mut scratch[..len], buf).is_err() {
+            return ErrorCode::BadAddress.as_i64();
+        }
+        serial::write_str(core::str::from_utf8(&scratch[..len]).unwrap_or(""));
+        len as i64
+    }
 }
 
 fn sys_read(_args: SyscallArgs) -> i64 {
@@ -106,11 +143,23 @@ fn sys_close(_args: SyscallArgs) -> i64 {
 }
 
 fn sys_yield() -> i64 {
+    sched::yield_now();
     ErrorCode::Success.as_i64()
 }
 
 fn sys_getpid() -> i64 {
-    1
+    sched::current_process_id().map_or(1, |pid| pid.0 as i64)
+}
+
+/// Copies `len` bytes from a validated userspace address into `dest`.
+#[cfg(not(feature = "host-stub"))]
+fn copy_from_user(dest: &mut [u8], src: u64) -> Result<(), ErrorCode> {
+    for (index, slot) in dest.iter_mut().enumerate() {
+        // SAFETY: `src` was validated as a canonical user buffer by dispatch.
+        let byte = unsafe { core::ptr::read_volatile((src + index as u64) as *const u8) };
+        *slot = byte;
+    }
+    Ok(())
 }
 
 fn sys_not_implemented() -> i64 {
@@ -164,7 +213,7 @@ mod tests {
         with_current_table(|table| {
             *table = CapabilityTable::new();
         });
-        let args = SyscallArgs::new(0, 0x1000, 4, 0, 0, 0);
+        let args = SyscallArgs::new(1, 0x1000, 4, 0, 0, 0);
         let denied = dispatch(SyscallNumber::Write.as_u64(), args);
         assert_eq!(denied, ErrorCode::PermissionDenied.as_i64());
 
@@ -172,6 +221,15 @@ mod tests {
             table.grant(ObjectKind::File, CapabilityRights::WRITE).unwrap();
         });
         let allowed = dispatch(SyscallNumber::Write.as_u64(), args);
-        assert_eq!(allowed, ErrorCode::NotSupported.as_i64());
+        assert_eq!(allowed, 4);
+    }
+
+    #[test]
+    fn write_to_stdout_returns_byte_count() {
+        with_current_table(|table| {
+            table.grant(ObjectKind::File, CapabilityRights::WRITE).unwrap();
+        });
+        let args = SyscallArgs::new(1, 0x1000, 8, 0, 0, 0);
+        assert_eq!(dispatch(SyscallNumber::Write.as_u64(), args), 8);
     }
 }

@@ -1,8 +1,7 @@
 //! SYSCALL/SYSRET entry via model-specific registers (preferred x86_64 path).
 
-use super::gdt::layout::{KERNEL_CODE_SELECTOR, USER_CODE_SELECTOR, USER_DATA_SELECTOR};
+use super::gdt::layout::{KERNEL_CODE_SELECTOR, USER_DATA_SELECTOR};
 use aether_abi::SyscallArgs;
-use aether_types::ErrorCode;
 
 /// IA32_EFER — extended feature enable register.
 const MSR_EFER: u32 = 0xC000_0080;
@@ -88,6 +87,7 @@ pub fn init(kernel_stack_top: u64) {
 }
 
 /// Returns the address of the SYSCALL entry stub (for IDT-less MSR path tests).
+#[cfg(test)]
 #[must_use]
 pub fn entry_stub_address() -> u64 {
     syscall_entry_stub as u64
@@ -158,6 +158,7 @@ unsafe fn write_msr(msr: u32, value: u64) {
 }
 
 /// Builds the IA32_STAR value for the installed user/kernel selectors.
+#[cfg(test)]
 #[must_use]
 pub const fn star_msr_value(kernel_cs: u16, user_data_selector: u16) -> u64 {
     let star_base = (user_data_selector as u64).wrapping_sub(8);
@@ -201,7 +202,9 @@ pub struct SyscallTrapFrame {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arch::x86_64::gdt::layout::{KERNEL_CODE_SELECTOR, USER_DATA_SELECTOR};
+    use crate::arch::x86_64::gdt::layout::{
+        KERNEL_CODE_SELECTOR, USER_CODE_SELECTOR, USER_DATA_SELECTOR,
+    };
 
     #[test]
     fn star_msr_encodes_sysret_selectors() {

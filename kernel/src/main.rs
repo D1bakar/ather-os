@@ -3,7 +3,7 @@
 #![no_std]
 #![no_main]
 
-use aether_kernel::{arch, drivers, mm, sched, serial};
+use aether_kernel::{arch, drivers, mm, sched, serial, syscall};
 use aether_types::BootInfo;
 use core::panic::PanicInfo;
 
@@ -36,8 +36,10 @@ pub extern "sysv64" fn _start(boot_info: *const BootInfo) -> ! {
 
     sched::init();
     sched::spawn_worker_thread();
+    syscall::init(sched::kernel_stack_top());
 
     serial::write_str("Aether OS M2: GDT/IDT/interrupts initialized\r\n");
+    serial::write_str("Aether OS M5: syscalls initialized\r\n");
     log_driver_status();
 
     sched::start();

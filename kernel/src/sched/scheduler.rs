@@ -236,6 +236,33 @@ pub fn current_task_id() -> Option<TaskId> {
     unsafe { CURRENT.map(|t| (*t.as_ptr()).id) }
 }
 
+/// Returns the owning process id of the currently running task, if set.
+#[must_use]
+pub fn current_process_id() -> Option<crate::process::ProcessId> {
+    // SAFETY: Read-only access to CURRENT.
+    unsafe { CURRENT.and_then(|t| (*t.as_ptr()).process) }
+}
+
+/// Marks the running task terminated and yields to the next runnable task.
+///
+/// Does not return on bare metal when another task is runnable.
+#[cfg(not(feature = "host-stub"))]
+pub fn terminate_current() {
+    // SAFETY: Scheduler state is only mutated with interrupts managed by callers.
+    unsafe {
+        let current = match CURRENT {
+            Some(c) => c,
+            None => return,
+        };
+        (*current.as_ptr()).state = TaskState::Terminated;
+    }
+    yield_now();
+}
+
+/// Host-stub no-op process termination (M5 CI).
+#[cfg(feature = "host-stub")]
+pub fn terminate_current() {}
+
 #[cfg(not(feature = "host-stub"))]
 fn schedule_internal(_from_timer: bool) {
     // SAFETY: Scheduler state is only mutated with interrupts managed by callers.
@@ -266,9 +293,19 @@ fn schedule_internal(_from_timer: bool) {
 
 #[cfg(not(feature = "host-stub"))]
 unsafe fn pick_next(current: NonNull<Task>) -> NonNull<Task> {
-    match (*current.as_ptr()).next() {
+    let start = current;
+    let mut cursor = match (*current.as_ptr()).next() {
         Some(n) => n,
-        None => current,
+        None => return current,
+    };
+    loop {
+        if (*cursor.as_ptr()).state != TaskState::Terminated {
+            return cursor;
+        }
+        cursor = match (*cursor.as_ptr()).next() {
+            Some(n) if n != start => n,
+            _ => return current,
+        };
     }
 }
 
@@ -293,9 +330,19 @@ extern "C" fn idle_entry() -> ! {
 fn pick_next_task(current: NonNull<Task>) -> NonNull<Task> {
     // SAFETY: Test-only helper mirroring production round-robin policy.
     unsafe {
-        match (*current.as_ptr()).next() {
+        let start = current;
+        let mut cursor = match (*current.as_ptr()).next() {
             Some(n) => n,
-            None => current,
+            None => return current,
+        };
+        loop {
+            if (*cursor.as_ptr()).state != TaskState::Terminated {
+                return cursor;
+            }
+            cursor = match (*cursor.as_ptr()).next() {
+                Some(n) if n != start => n,
+                _ => return current,
+            };
         }
     }
 }
@@ -323,5 +370,22 @@ mod tests {
 
         assert_eq!(pick_next_task(idle_ptr), worker_ptr);
         assert_eq!(pick_next_task(worker_ptr), idle_ptr);
+    }
+
+    #[test]
+    fn round_robin_skips_terminated_tasks() {
+        let mut idle = Task::new(TaskId(1), 0, 0x1000, 0);
+        let mut worker = Task::new(TaskId(2), 0, 0x2000, 0);
+        let mut exited = Task::new(TaskId(3), 0, 0x3000, 0);
+        exited.state = TaskState::Terminated;
+
+        let idle_ptr = NonNull::from(&mut idle);
+        let worker_ptr = NonNull::from(&mut worker);
+        let exited_ptr = NonNull::from(&mut exited);
+        idle.set_next(Some(exited_ptr));
+        exited.set_next(Some(worker_ptr));
+        worker.set_next(Some(idle_ptr));
+
+        assert_eq!(pick_next_task(idle_ptr), worker_ptr);
     }
 }
