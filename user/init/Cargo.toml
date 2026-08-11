@@ -1,0 +1,20 @@
+[package]
+name = "aether-init"
+description = "Aether OS init process (first user task)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[features]
+default = ["host"]
+host = ["aether-rt/host"]
+bare-metal = ["aether-rt/bare-metal"]
+
+[dependencies]
+aether-rt = { path = "../../libs/aether-rt", default-features = false }
+
+[[bin]]
+name = "init"
+path = "src/main.rs"
