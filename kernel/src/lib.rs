@@ -42,6 +42,13 @@ pub use arch::x86_64::{
 #[cfg(target_arch = "x86_64")]
 pub use arch::x86_64::switch::{CpuContext, CTX_SIZE};
 
+/// Re-exported collection types from [ether_collections].
+pub use aether_collections::Vec as AetherVec;
+/// Re-exported I/O traits from [ether_io].
+pub use aether_io::{IoError, Read, StrWriter, Write, WriteStr};
+/// Re-exported spin mutex from [ether_sync].
+pub use aether_sync::{SpinMutex, SpinMutexGuard};
+
 /// Placeholder kernel entry for host CI.
 pub fn kmain_stub() -> ! {
     if is_host_stub() {

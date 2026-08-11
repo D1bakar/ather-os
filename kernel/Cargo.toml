@@ -27,6 +27,7 @@ aether-types = { workspace = true, default-features = false }
 aether-abi = { workspace = true, default-features = false }
 aether-io = { workspace = true, default-features = false }
 aether-sync = { workspace = true, default-features = false }
+aether-collections = { workspace = true, default-features = false }
 aether-drv-hal = { workspace = true }
 aether-drv-serial = { workspace = true }
 aether-drv-keyboard = { workspace = true }

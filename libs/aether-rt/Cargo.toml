@@ -1,0 +1,23 @@
+[package]
+name = "aether-rt"
+description = "Minimal user-space runtime for Aether OS (write, exit, mmap stubs)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[features]
+default = ["host"]
+# Host builds: syscalls are simulated via std I/O.
+host = ["dep:aether-abi"]
+# Bare-metal user binaries linked for x86_64-unknown-none.
+bare-metal = ["dep:aether-abi"]
+
+[dependencies]
+aether-abi = { workspace = true, optional = true, default-features = false }
+
+[dev-dependencies]
+aether-abi = { workspace = true, default-features = false }
+
+[lib]

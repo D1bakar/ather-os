@@ -123,6 +123,7 @@ name = "aether-kernel"
 version = "0.1.0"
 dependencies = [
  "aether-abi",
+ "aether-collections",
  "aether-drv-framebuffer",
  "aether-drv-hal",
  "aether-drv-keyboard",
