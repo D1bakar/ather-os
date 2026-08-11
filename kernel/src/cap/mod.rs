@@ -167,6 +167,13 @@ pub fn with_current_table<R>(f: impl FnOnce(&mut CapabilityTable) -> R) -> R {
     f(&mut CURRENT_TABLE.lock())
 }
 
+/// Serializes host tests that mutate the global capability table.
+#[cfg(test)]
+pub fn lock_table_for_test() -> std::sync::MutexGuard<'static, ()> {
+    static CAP_TABLE_TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    CAP_TABLE_TEST_MUTEX.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

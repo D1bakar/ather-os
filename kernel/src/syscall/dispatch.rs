@@ -209,6 +209,7 @@ mod tests {
 
     #[test]
     fn write_requires_file_write_capability_when_enforced() {
+        let _guard = crate::cap::lock_table_for_test();
         clear();
         with_current_table(|table| {
             *table = CapabilityTable::new();
@@ -226,7 +227,9 @@ mod tests {
 
     #[test]
     fn write_to_stdout_returns_byte_count() {
+        let _guard = crate::cap::lock_table_for_test();
         with_current_table(|table| {
+            *table = CapabilityTable::new();
             table.grant(ObjectKind::File, CapabilityRights::WRITE).unwrap();
         });
         let args = SyscallArgs::new(1, 0x1000, 8, 0, 0, 0);
