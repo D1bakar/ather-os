@@ -1,0 +1,23 @@
+[package]
+name = "aether-compositor"
+description = "Minimal compositor for Aether OS GUI bring-up"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "aether-window/std",
+    "aether-gui-ipc/std",
+]
+
+[dependencies]
+aether-window = { path = "../window", default-features = false }
+aether-gui-ipc = { path = "../gui-ipc", default-features = false }
+embedded-graphics = { version = "0.8", default-features = false }
+
+[dev-dependencies]
+aether-terminal = { path = "../terminal", default-features = false }

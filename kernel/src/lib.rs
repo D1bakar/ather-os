@@ -47,6 +47,10 @@ pub mod security;
 /// Syscall dispatch and userspace validation (M5).
 pub mod syscall;
 
+/// User-space bootstrap stub (M6).
+#[cfg(not(feature = "host-stub"))]
+pub mod user;
+
 /// Virtual filesystem trait and path validation.
 pub mod vfs;
 

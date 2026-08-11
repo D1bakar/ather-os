@@ -19,19 +19,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "aether-init"
+version = "0.1.0"
+dependencies = [
+ "aether-rt",
+]
+
+[[package]]
 name = "aether-integration-tests"
 version = "0.1.0"
+dependencies = [
+ "aether-abi",
+ "aether-kernel",
+ "aether-types",
+]
 
 [[package]]
 name = "aether-kernel"
 version = "0.1.0"
 dependencies = [
+ "aether-abi",
  "aether-types",
 ]
 
 [[package]]
 name = "aether-logger"
 version = "0.1.0"
+
+[[package]]
+name = "aether-rt"
+version = "0.1.0"
+dependencies = [
+ "aether-abi",
+]
+
+[[package]]
+name = "aether-shell"
+version = "0.1.0"
+dependencies = [
+ "aether-rt",
+]
 
 [[package]]
 name = "aether-types"

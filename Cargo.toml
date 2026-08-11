@@ -4,15 +4,21 @@ members = [
     "crates/aether-types",
     "crates/aether-abi",
     "crates/aether-logger",
+    "libs/aether-rt",
     "kernel",
     "boot",
+    "user/init",
+    "user/shell",
     "tests",
 ]
 default-members = [
     "crates/aether-types",
     "crates/aether-abi",
     "crates/aether-logger",
+    "libs/aether-rt",
     "kernel",
+    "user/init",
+    "user/shell",
 ]
 
 [workspace.package]
@@ -27,6 +33,7 @@ aether-types = { path = "crates/aether-types", default-features = false }
 aether-abi = { path = "crates/aether-abi" }
 aether-logger = { path = "crates/aether-logger" }
 aether-kernel = { path = "kernel" }
+aether-rt = { path = "libs/aether-rt", default-features = false }
 log = { version = "0.4", default-features = false }
 uefi = { version = "0.33", default-features = false, features = ["alloc", "logger"] }
 

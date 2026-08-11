@@ -1,0 +1,13 @@
+[package]
+name = "aether-drv-keyboard"
+description = "PS/2 keyboard scancode reader for Aether OS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+
+[dependencies]
+aether-drv-hal = { path = "../hal" }

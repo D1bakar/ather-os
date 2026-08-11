@@ -1,0 +1,16 @@
+[package]
+name = "aether-pkg"
+description = "Aether OS package manager CLI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "aether-pkg"
+path = "src/main.rs"
+
+[dependencies]
+aether-pkgmgr = { workspace = true }
+clap = { version = "4", features = ["derive"] }

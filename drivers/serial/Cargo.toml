@@ -1,0 +1,14 @@
+[package]
+name = "aether-drv-serial"
+description = "16550 UART serial driver (COM1) for Aether OS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+
+[dependencies]
+aether-drv-hal = { path = "../hal" }
+aether-types = { workspace = true, default-features = false }

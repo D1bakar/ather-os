@@ -4,6 +4,75 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+[dependencies]
+aether-kernel = { path = "../kernel", features = ["host-stub"] }
+aether-abi = { workspace = true }
+aether-types = { workspace = true, features = ["std"] }
+
+[[test]]
+name = "security_m5"
+path = "security_m5.rs"
+
+[[test]]
+name = "sched_syscall"
+path = "sched_syscall.rs"
+
+[[test]]
+name = "arch_user_gdt"
+path = "arch_user_gdt.rs"
+
 [[test]]
 name = "qemu_boot"
 path = "qemu_boot.rs"
+
+[[test]]
+name = "arch_gdt"
+path = "arch_gdt.rs"
+
+[[test]]
+name = "arch_idt"
+path = "arch_idt.rs"
+
+[[test]]
+name = "mm_frame"
+path = "mm_frame.rs"
+
+[[test]]
+name = "mm_paging"
+path = "mm_paging.rs"
+
+[[test]]
+name = "net_stack"
+path = "net_stack.rs"
+
+[[test]]
+name = "fs_ramfs"
+path = "fs_ramfs.rs"
+
+[[test]]
+name = "libs"
+path = "libs.rs"
+
+[[test]]
+name = "property_abi"
+path = "property_abi.rs"
+
+[[test]]
+name = "property_gdt"
+path = "property_gdt.rs"
+
+[[test]]
+name = "property_vfs"
+path = "property_vfs.rs"
+
+[[test]]
+name = "fuzz_syscall"
+path = "fuzz_syscall.rs"
+
+[[test]]
+name = "fuzz_ramfs"
+path = "fuzz_ramfs.rs"
+
+[[test]]
+name = "integration_suite"
+path = "integration_suite.rs"

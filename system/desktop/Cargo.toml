@@ -1,0 +1,22 @@
+[package]
+name = "aether-desktop"
+description = "Desktop shell stubs (taskbar and launcher) for Aether OS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "aether-compositor/std",
+    "aether-window/std",
+]
+
+[dependencies]
+aether-compositor = { path = "../compositor", default-features = false }
+aether-window = { path = "../window", default-features = false }
+embedded-graphics = { version = "0.8", default-features = false }
+
+[dev-dependencies]

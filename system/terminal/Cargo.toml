@@ -1,0 +1,18 @@
+[package]
+name = "aether-terminal"
+description = "Framebuffer terminal emulator stub for Aether OS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[features]
+default = ["std"]
+std = ["aether-window/std"]
+
+[dependencies]
+aether-window = { path = "../window", default-features = false }
+embedded-graphics = { version = "0.8", default-features = false }
+
+[dev-dependencies]

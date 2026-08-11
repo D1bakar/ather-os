@@ -1,0 +1,10 @@
+[package]
+name = "aether-drv-hal"
+description = "Hardware abstraction helpers for Aether OS drivers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]

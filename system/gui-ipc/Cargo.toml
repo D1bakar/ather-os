@@ -1,0 +1,17 @@
+[package]
+name = "aether-gui-ipc"
+description = "IPC message and shared-memory stubs for Aether OS GUI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
+aether-window = { path = "../window", default-features = false }
+
+[dev-dependencies]
