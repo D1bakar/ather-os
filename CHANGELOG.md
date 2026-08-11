@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **M4 scheduler:** round-robin kernel-thread scheduler with idle + worker threads, voluntary yield, and PIT timer preemption (`kernel/src/sched/`).
+- Context switch assembly saving callee-saved GPRs, `RSP`, `RIP`, and `CR3` (`kernel/src/arch/x86_64/switch.rs`).
+- Host test for round-robin run-queue topology (`sched::scheduler` tests).
+- **M3 memory (local):** physical frame allocator, paging, and kernel heap (`kernel/src/mm/`).
 - **Industry-ready documentation:** professional README, [docs/ROADMAP.md](docs/ROADMAP.md) (M0–M10),
   [docs/BUILD.md](docs/BUILD.md), [docs/INSTALL.md](docs/INSTALL.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 - Expanded hardware compatibility matrix: [docs/hardware/README.md](docs/hardware/README.md).
@@ -33,6 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Kernel boot sequence: `mm::init` → GDT/IDT/PIC/timer → `sched::init` → worker thread → `sched::start` (STI + first context switch).
+- Timer IRQ handler sends EOI before calling `sched::tick_preempt()`.
+- QEMU smoke test expects `Aether OS M4: scheduler initialized` and optionally worker thread output.
+- README milestone table marks M3–M4 as shipped; badge updated to M4.
+- `aether-abi` workspace dependency defaults to `default-features = false` for bare-metal builds.
+- Capability and audit globals use `SpinMutex` instead of `thread_local` for `#![no_std]` bare-metal.
 - [ARCHITECTURE.md](ARCHITECTURE.md) — subsystem map through M10; shipped vs planned markers updated for M2.
 - [SECURITY.md](SECURITY.md) and [docs/security/threat-model.md](docs/security/threat-model.md) — M2 maturity, interrupt handling, update/packaging scaffolds.
 - [docs/architecture/README.md](docs/architecture/README.md) — M2 shipped status for CPU/arch subsystem.
@@ -42,6 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 
+- Timer preemption uses the legacy PIT path; local APIC timer migration remains a follow-up.
+- Context switches preserve callee-saved registers only; full interrupt-frame save is documented in `switch.rs`.
 - **QEMU serial boot works** when `qemu-system-x86_64` and OVMF are installed (verified in CI; local run requires same).
 - **M2 host tests** cover GDT/IDT layout encoding; IRQ/timer delivery is validated via QEMU smoke when run.
 - **Real PC hardware boot is untested.** Memory-map copy in `BootInfo` remains a stub.

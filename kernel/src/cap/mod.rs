@@ -6,7 +6,7 @@ use aether_types::{
 };
 
 use crate::security::audit::record_event;
-use core::cell::RefCell;
+use aether_sync::SpinMutex;
 
 /// Maximum capabilities stored per process.
 pub const MAX_CAPABILITIES: usize = 32;
@@ -160,13 +160,11 @@ impl Default for CapabilityTable {
 }
 
 // Global bring-up capability table until per-process tables are wired in the scheduler.
-thread_local! {
-    static CURRENT_TABLE: RefCell<CapabilityTable> = RefCell::new(CapabilityTable::new());
-}
+static CURRENT_TABLE: SpinMutex<CapabilityTable> = SpinMutex::new(CapabilityTable::new());
 
 /// Runs `f` with mutable access to the global capability table (M5 bring-up stub).
 pub fn with_current_table<R>(f: impl FnOnce(&mut CapabilityTable) -> R) -> R {
-    CURRENT_TABLE.with(|table| f(&mut table.borrow_mut()))
+    f(&mut CURRENT_TABLE.lock())
 }
 
 #[cfg(test)]

@@ -1,0 +1,16 @@
+[package]
+name = "aether-sync"
+description = "Synchronization primitives for Aether OS (no_std)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[features]
+default = ["std"]
+std = []
+
+[lib]
+
+[dev-dependencies]

@@ -15,6 +15,7 @@ pub struct Framebuffer {
     width: u32,
     height: u32,
     stride: u32,
+    #[allow(dead_code)]
     pixel_format: u32,
 }
 

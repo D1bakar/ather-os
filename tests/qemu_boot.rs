@@ -6,7 +6,11 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-const EXPECTED: &str = "Aether OS kernel started";
+const EXPECTED_BOOT: &str = "Aether OS kernel started";
+const EXPECTED_M2: &str = "Aether OS M2: GDT/IDT/interrupts initialized";
+const EXPECTED_M4: &str = "Aether OS M4: scheduler initialized";
+const EXPECTED_TIMER: &str = "[timer] tick";
+const EXPECTED_WORKER: &str = "[worker] kernel thread tick";
 const TIMEOUT: Duration = Duration::from_secs(45);
 
 fn root() -> PathBuf {
@@ -54,7 +58,25 @@ fn qemu_boot_prints_kernel_message() {
     assert!(status.success(), "QEMU smoke script failed");
 
     let log = std::fs::read_to_string(&log_path).expect("serial log missing");
-    assert!(log.contains(EXPECTED), "serial log missing expected string: {EXPECTED}\n---\n{log}");
+    assert!(
+        log.contains(EXPECTED_BOOT),
+        "serial log missing boot banner: {EXPECTED_BOOT}\n---\n{log}"
+    );
+    assert!(
+        log.contains(EXPECTED_M2),
+        "serial log missing M2 init message: {EXPECTED_M2}\n---\n{log}"
+    );
+    assert!(
+        log.contains(EXPECTED_M4),
+        "serial log missing M4 scheduler message: {EXPECTED_M4}\n---\n{log}"
+    );
+    // Timer ticks and worker thread output appear after STI; optional if QEMU run is short.
+    if log.contains(EXPECTED_TIMER) {
+        eprintln!("QEMU smoke: timer tick output observed");
+    }
+    if log.contains(EXPECTED_WORKER) {
+        eprintln!("QEMU smoke: worker thread output observed");
+    }
 }
 
 #[test]

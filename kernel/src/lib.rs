@@ -1,47 +1,52 @@
 //! Aether OS kernel library.
-//!
-//! M0 provides a host-buildable stub so the workspace passes CI. M1 adds the
-//! `#![no_std]` entry point, panic handler, and serial-backed logging for
-//! `x86_64-unknown-none`. M13 adds an AArch64 architecture scaffold (not bootable).
-//!
-//! Build for bare metal (M1+):
-//!
-//! ```text
-//! rustup target add x86_64-unknown-none
-//! cargo build -p aether-kernel --no-default-features --target x86_64-unknown-none
-//! ```
-//!
-//! AArch64 scaffold (M13 — no boot path yet):
-//!
-//! ```text
-//! rustup target add aarch64-unknown-none
-//! ```
 
 #![cfg_attr(not(feature = "host-stub"), no_std)]
 #![deny(missing_docs)]
 
-/// Kernel semantic version string (not yet reported at boot).
+/// Kernel semantic version string.
 pub const KERNEL_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Planned higher-half kernel virtual base (design intent — not mapped in M0).
+/// Planned higher-half kernel virtual base.
 pub const KERNEL_VIRT_BASE: u64 = 0xFFFF_8000_0000_0000;
 
-/// Returns whether the crate was built with the M0 host stub feature.
+/// Returns whether the crate was built with the host stub feature.
 pub const fn is_host_stub() -> bool {
     cfg!(feature = "host-stub")
 }
 
-#[cfg(target_arch = "aarch64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub mod arch;
 
-/// Placeholder for M1 `kmain` — initializes subsystems and enters the scheduler loop.
-///
-/// Not called in M0; exists to document the intended entry API.
+#[cfg(not(feature = "host-stub"))]
+pub mod drivers;
+
+pub mod cap;
+pub mod elf;
+pub mod fs;
+pub mod mm;
+pub mod net;
+pub mod process;
+pub mod sched;
+pub mod security;
+pub mod syscall;
+pub mod vfs;
+
+#[cfg(not(feature = "host-stub"))]
+pub mod serial;
+
+#[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
+pub use arch::x86_64::{
+    enable_interrupts, init_interrupts, init_pic, init_timer, register_irq_handlers, ticks,
+};
+
+#[cfg(target_arch = "x86_64")]
+pub use arch::x86_64::switch::{CpuContext, CTX_SIZE};
+
+/// Placeholder kernel entry for host CI.
 pub fn kmain_stub() -> ! {
     if is_host_stub() {
-        panic!("kmain_stub must not run in production; M1 implements bare-metal kmain");
+        panic!("kmain_stub must not run in production");
     }
-    // Bare-metal idle loop until M1 implements proper halt/wfi.
     #[allow(clippy::empty_loop)]
     loop {}
 }

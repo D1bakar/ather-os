@@ -1,7 +1,16 @@
 //! Saved CPU register frame for context switches.
 //!
-//! Offsets are shared with the assembly in [`switch_context`] so host tests can
-//! verify layout without executing bare-metal code.
+//! ## Calling convention
+//!
+//! [`switch_context`] uses the System V AMD64 ABI: `current` in `RDI`, `next` in `RSI`.
+//! It saves callee-saved GPRs (`RBX`, `RBP`, `R12`–`R15`), `RSP`, the return address at
+//! `[RSP]` (treated as `RIP`), and `CR3`, then restores those fields from `next` and `ret`s
+//! to `next.rip`.
+//!
+//! Volatile registers (`RAX`, `RCX`, `RDX`, `RSI`, `RDI`, `R8`–`R11`) are **not** preserved
+//! across a switch. Callers must not hold live values in volatiles across `switch_context`.
+//! Timer preemption runs from the IRQ stub after volatiles are saved on the interrupted task's
+//! stack; the stub completes with `iretq` when the task is scheduled again.
 
 /// Byte offset of `CpuContext::rbx` (used by assembly).
 pub const CTX_RBX: usize = 0;

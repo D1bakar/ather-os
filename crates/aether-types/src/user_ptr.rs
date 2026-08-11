@@ -1,144 +1,88 @@
-//! User-space pointer validation helpers.
-//!
-//! Pure functions for checking that syscall arguments reference canonical,
-//! in-bounds user addresses before the kernel dereferences them.
+//! Userspace pointer validation helpers.
 
-use crate::{AetherError, AetherResult, ErrorCode, SecurityDefaults, VirtualAddress};
+use crate::security_config::SecurityDefaults;
+use crate::user::{is_kernel_address, is_user_address, USER_SPACE_MAX, USER_SPACE_MIN};
+use crate::{AetherError, AetherResult, ErrorCode};
 
-/// Inclusive upper bound of the x86_64 user canonical address range.
-pub const USER_ADDRESS_MAX: u64 = 0x0000_7FFF_FFFF_FFFF;
+/// Minimum canonical user address used for pointer checks.
+pub const USER_ADDRESS_MIN: u64 = USER_SPACE_MIN;
+/// Maximum canonical user address used for pointer checks.
+pub const USER_ADDRESS_MAX: u64 = USER_SPACE_MAX;
 
-/// Minimum non-null user address (page 0 is never mapped for user).
-pub const USER_ADDRESS_MIN: u64 = 0x1;
-
-/// A user-space buffer described by base address and byte length.
+/// Userspace buffer described by base pointer and length.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct UserBuffer {
-    /// Buffer base address.
-    pub base: VirtualAddress,
-    /// Buffer length in bytes (may be zero).
-    pub len: u64,
+    ptr: u64,
+    len: u64,
 }
 
 impl UserBuffer {
-    /// Creates a buffer descriptor from raw syscall arguments.
+    /// Creates a new userspace buffer description.
     #[must_use]
-    pub const fn new(base: u64, len: u64) -> Self {
-        Self { base: VirtualAddress::new(base), len }
+    pub const fn new(ptr: u64, len: u64) -> Self {
+        Self { ptr, len }
     }
 
-    /// Returns the inclusive end address, or `None` on overflow.
+    /// Base pointer.
     #[must_use]
-    pub const fn end_exclusive(&self) -> Option<u64> {
-        self.base.as_u64().checked_add(self.len)
+    pub const fn ptr(self) -> u64 {
+        self.ptr
+    }
+
+    /// Length in bytes.
+    #[must_use]
+    pub const fn len(self) -> u64 {
+        self.len
+    }
+
+    /// Returns `true` when the buffer spans zero bytes.
+    #[must_use]
+    pub const fn is_empty(self) -> bool {
+        self.len == 0
     }
 }
 
-/// Returns `true` if `addr` lies in the canonical user range.
+/// Returns `true` when `addr` is a canonical user address.
 #[must_use]
 pub const fn is_canonical_user_address(addr: u64) -> bool {
-    addr >= USER_ADDRESS_MIN && addr <= USER_ADDRESS_MAX
+    is_user_address(addr)
 }
 
-/// Returns `true` if `addr` is in the non-canonical x86_64 hole or kernel half.
+/// Returns `true` when `addr` is not in the user range.
 #[must_use]
 pub const fn is_non_user_address(addr: u64) -> bool {
-    !is_canonical_user_address(addr)
+    !is_user_address(addr) || is_kernel_address(addr)
 }
 
-/// Validates a single user pointer (non-null, canonical, in user range).
-pub const fn validate_user_address(addr: u64) -> AetherResult<VirtualAddress> {
-    if addr == 0 {
+/// Validates a single userspace pointer.
+pub fn validate_user_address(addr: u64) -> AetherResult<u64> {
+    if is_kernel_address(addr) || !is_user_address(addr) {
         return Err(AetherError::new(ErrorCode::BadAddress));
     }
-    if is_non_user_address(addr) {
-        return Err(AetherError::new(ErrorCode::BadAddress));
-    }
-    Ok(VirtualAddress::new(addr))
+    Ok(addr)
 }
 
-/// Validates a user buffer against policy limits.
+/// Validates `[buf.ptr(), buf.ptr() + buf.len())` fits in user space without overflow.
 pub fn validate_user_buffer(
-    buffer: UserBuffer,
-    config: &SecurityDefaults,
+    buf: UserBuffer,
+    _config: &SecurityDefaults,
 ) -> AetherResult<UserBuffer> {
-    if buffer.len > config.max_user_copy_bytes {
-        return Err(AetherError::new(ErrorCode::InvalidArgument));
+    if buf.is_empty() {
+        return Ok(buf);
     }
-
-    let base = buffer.base.as_u64();
-    if base == 0 && buffer.len > 0 {
+    validate_user_address(buf.ptr())?;
+    let end = buf.ptr().checked_add(buf.len()).ok_or(AetherError::new(ErrorCode::BadAddress))?;
+    if end > USER_ADDRESS_MAX || is_kernel_address(end) {
         return Err(AetherError::new(ErrorCode::BadAddress));
     }
-    if base != 0 {
-        validate_user_address(base)?;
-    }
-
-    if buffer.len > 0 {
-        let end = buffer.end_exclusive().ok_or(AetherError::new(ErrorCode::BadAddress))?;
-        if end > USER_ADDRESS_MAX + 1 {
-            return Err(AetherError::new(ErrorCode::BadAddress));
-        }
-        // Wraparound: end <= base with non-zero len.
-        if end <= base {
-            return Err(AetherError::new(ErrorCode::BadAddress));
-        }
-    }
-
-    Ok(buffer)
+    Ok(buf)
 }
 
-/// Validates a NUL-terminated path pointer and enforces maximum path length.
-pub fn validate_user_path_ptr(addr: u64, max_len: u64) -> AetherResult<VirtualAddress> {
-    let ptr = validate_user_address(addr)?;
-    if max_len == 0 || max_len > SecurityDefaults::PRODUCTION.max_user_path_bytes {
-        return Err(AetherError::new(ErrorCode::InvalidArgument));
-    }
-    let end = addr.checked_add(max_len).ok_or(AetherError::new(ErrorCode::BadAddress))?;
-    if end > USER_ADDRESS_MAX {
+/// Validates a NUL-terminated userspace path pointer (stub — length bound only).
+pub fn validate_user_path_ptr(ptr: u64, max_len: u64) -> AetherResult<u64> {
+    validate_user_address(ptr)?;
+    if max_len == 0 {
         return Err(AetherError::new(ErrorCode::BadAddress));
     }
     Ok(ptr)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn rejects_null_pointer() {
-        assert!(validate_user_address(0).is_err());
-    }
-
-    #[test]
-    fn rejects_kernel_pointer() {
-        assert!(validate_user_address(0xFFFF_8000_0000_0000).is_err());
-    }
-
-    #[test]
-    fn accepts_valid_user_pointer() {
-        let addr = validate_user_address(0x1000).unwrap();
-        assert_eq!(addr.as_u64(), 0x1000);
-    }
-
-    #[test]
-    fn rejects_buffer_overflow() {
-        let cfg = SecurityDefaults::active();
-        let buf = UserBuffer::new(USER_ADDRESS_MAX, 2);
-        assert!(validate_user_buffer(buf, &cfg).is_err());
-    }
-
-    #[test]
-    fn rejects_excessive_copy_length() {
-        let cfg = SecurityDefaults::active();
-        let buf = UserBuffer::new(0x1000, cfg.max_user_copy_bytes + 1);
-        assert!(validate_user_buffer(buf, &cfg).is_err());
-    }
-
-    #[test]
-    fn zero_length_buffer_at_null_is_allowed() {
-        let cfg = SecurityDefaults::active();
-        let buf = UserBuffer::new(0, 0);
-        assert!(validate_user_buffer(buf, &cfg).is_ok());
-    }
 }

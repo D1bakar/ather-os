@@ -2,16 +2,15 @@
 
 #![no_std]
 #![no_main]
-#![allow(dead_code, unused_imports)]
 
-use aether_kernel::{arch, drivers, sched, serial, syscall, user};
+use aether_kernel::{arch, drivers, mm, sched, serial};
 use aether_types::BootInfo;
 use core::panic::PanicInfo;
 
 /// Kernel entry called by the UEFI boot loader (System V AMD64: `RDI` = BootInfo).
 #[no_mangle]
 pub extern "sysv64" fn _start(boot_info: *const BootInfo) -> ! {
-    serial::init_default();
+    serial::init();
     serial::write_str("Aether OS kernel started\r\n");
 
     if !boot_info.is_null() {
@@ -20,6 +19,7 @@ pub extern "sysv64" fn _start(boot_info: *const BootInfo) -> ! {
         if info.is_valid() {
             drivers::set_boot_info(info);
             serial::write_str("BootInfo OK\r\n");
+            mm::init(info);
         } else {
             serial::write_str("BootInfo invalid\r\n");
         }
@@ -32,23 +32,15 @@ pub extern "sysv64" fn _start(boot_info: *const BootInfo) -> ! {
     arch::x86_64::idt::init();
     arch::x86_64::init_pic();
     arch::x86_64::register_irq_handlers();
-    arch::x86_64::register_keyboard_handler();
     arch::x86_64::init_timer();
 
     sched::init();
-    syscall::init(sched::kernel_stack_top());
+    sched::spawn_worker_thread();
 
-    arch::x86_64::enable_interrupts();
-
-    serial::write_str("Aether OS M9: drivers and interrupts initialized\r\n");
+    serial::write_str("Aether OS M2: GDT/IDT/interrupts initialized\r\n");
     log_driver_status();
-    user::init_userspace_stub();
 
-    loop {
-        unsafe {
-            core::arch::asm!("hlt", options(nomem, nostack, preserves_flags));
-        }
-    }
+    sched::start();
 }
 
 fn log_driver_status() {
@@ -110,10 +102,8 @@ fn write_hex16(value: u16) {
 }
 
 fn write_hex_byte(value: u8) {
-    let hi = value >> 4;
-    let lo = value & 0x0F;
-    serial::write_byte(hex_digit(hi));
-    serial::write_byte(hex_digit(lo));
+    serial::write_byte(hex_digit(value >> 4));
+    serial::write_byte(hex_digit(value & 0x0F));
 }
 
 fn hex_digit(n: u8) -> u8 {

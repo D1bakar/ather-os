@@ -4,36 +4,87 @@ members = [
     "crates/aether-types",
     "crates/aether-abi",
     "crates/aether-logger",
+    "drivers/hal",
+    "drivers/serial",
+    "drivers/keyboard",
+    "drivers/framebuffer",
+    "drivers/storage",
+    "drivers/net",
     "libs/aether-rt",
+    "libs/aether-sync",
+    "libs/aether-collections",
+    "libs/aether-io",
     "kernel",
     "boot",
     "user/init",
     "user/shell",
     "tests",
+    "tools/aether-serial",
+    "tools/img-builder",
+    "system/window",
+    "system/gui-ipc",
+    "system/compositor",
+    "system/desktop",
+    "system/terminal",
+    "system/pkgmgr",
+    "system/updater",
+    "tools/aether-pkg",
+    "system/gui-demo",
 ]
 default-members = [
     "crates/aether-types",
     "crates/aether-abi",
     "crates/aether-logger",
+    "drivers/hal",
+    "drivers/serial",
+    "drivers/keyboard",
+    "drivers/framebuffer",
+    "drivers/storage",
+    "drivers/net",
     "libs/aether-rt",
+    "libs/aether-sync",
+    "libs/aether-collections",
+    "libs/aether-io",
     "kernel",
     "user/init",
     "user/shell",
+    "tools/aether-serial",
+    "tools/img-builder",
+    "system/pkgmgr",
+    "tools/aether-pkg",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/aether-os/aether-os"
+repository = "https://github.com/D1bakar/ather-os"
 authors = ["Aether OS Contributors"]
 
 [workspace.dependencies]
 aether-types = { path = "crates/aether-types", default-features = false }
-aether-abi = { path = "crates/aether-abi" }
+aether-abi = { path = "crates/aether-abi", default-features = false }
 aether-logger = { path = "crates/aether-logger" }
+aether-pkgmgr = { path = "system/pkgmgr" }
 aether-kernel = { path = "kernel" }
+aether-updater = { path = "system/updater" }
+aether-drv-hal = { path = "drivers/hal" }
+aether-drv-serial = { path = "drivers/serial" }
+aether-drv-keyboard = { path = "drivers/keyboard" }
+aether-drv-framebuffer = { path = "drivers/framebuffer" }
+aether-drv-storage = { path = "drivers/storage" }
+aether-drv-net = { path = "drivers/net" }
 aether-rt = { path = "libs/aether-rt", default-features = false }
+aether-sync = { path = "libs/aether-sync", default-features = false }
+aether-collections = { path = "libs/aether-collections", default-features = false }
+aether-io = { path = "libs/aether-io", default-features = false }
+aether-window = { path = "system/window", default-features = false }
+aether-gui-ipc = { path = "system/gui-ipc", default-features = false }
+aether-compositor = { path = "system/compositor", default-features = false }
+aether-desktop = { path = "system/desktop", default-features = false }
+aether-terminal = { path = "system/terminal", default-features = false }
+embedded-graphics = { version = "0.8", default-features = false, features = ["graphics"] }
+x86_64 = { version = "0.15", default-features = false, features = ["instructions"] }
 log = { version = "0.4", default-features = false }
 uefi = { version = "0.33", default-features = false, features = ["alloc", "logger"] }
 
@@ -48,4 +99,3 @@ opt-level = "z"
 strip = true
 
 [profile.test]
-# Uses the default unwind panic strategy for host tests.

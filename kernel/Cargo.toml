@@ -1,17 +1,16 @@
 [package]
 name = "aether-kernel"
-description = "Aether OS kernel (M5: capability enforcement and syscall validation)"
+description = "Aether OS kernel (M2–M8 host-testable scaffolds)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
+build = "build.rs"
 
 [features]
 default = ["host-stub"]
-# M0: compile and test on the host CI runner.
 host-stub = ["aether-types/std"]
-# M1: build with --no-default-features --features bare-metal
 bare-metal = []
 
 [lib]
@@ -26,5 +25,14 @@ doc = false
 [dependencies]
 aether-types = { workspace = true, default-features = false }
 aether-abi = { workspace = true, default-features = false }
+aether-io = { workspace = true, default-features = false }
+aether-sync = { workspace = true, default-features = false }
+aether-drv-hal = { workspace = true }
+aether-drv-serial = { workspace = true }
+aether-drv-keyboard = { workspace = true }
+aether-drv-framebuffer = { workspace = true }
+aether-drv-storage = { workspace = true }
+aether-drv-net = { workspace = true }
+x86_64 = { workspace = true, default-features = false, features = ["instructions"] }
 
 [dev-dependencies]
