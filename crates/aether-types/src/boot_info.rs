@@ -12,6 +12,10 @@ pub const BOOT_INFO_MAGIC: u64 = 0x4145_5448_4552_4249;
 /// Current [`BootInfo`] layout version.
 pub const BOOT_INFO_VERSION: u32 = 1;
 
+/// `BootInfo.flags`: linear framebuffer fields in [`FramebufferInfo`] are valid.
+#[allow(dead_code)] // ABI flag — consumed by kernel once framebuffer handoff is wired
+pub const BOOT_INFO_FLAG_FRAMEBUFFER: u32 = 1 << 0;
+
 /// UEFI memory type for conventional RAM (UEFI spec value).
 pub const MEMORY_TYPE_CONVENTIONAL: u32 = 7;
 
@@ -104,6 +108,11 @@ mod tests {
         assert!(size_of::<BootInfo>() >= 64);
         assert_eq!(align_of::<BootInfo>(), 8);
         assert_eq!(align_of::<MemoryMapEntry>(), 8);
+    }
+
+    #[test]
+    fn framebuffer_flag_is_bit_zero() {
+        assert_eq!(BOOT_INFO_FLAG_FRAMEBUFFER, 1);
     }
 
     #[test]

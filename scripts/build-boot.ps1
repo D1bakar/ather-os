@@ -25,7 +25,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "==> Building bare-metal kernel"
 $env:RUSTC_BOOTSTRAP = "1"
-cargo build -p aether-kernel --no-default-features --features bare-metal --target x86_64-unknown-none --release -Z build-std=core,compiler_builtins -Z build-std-features=compiler-builtins-mem
+cargo build -p aether-kernel --no-default-features --features bare-metal --target x86_64-unknown-none --release -Z build-std=core,alloc,compiler_builtins -Z build-std-features=compiler-builtins-mem
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $BootSrc = Join-Path $TargetDir "x86_64-unknown-uefi\release\bootx64.efi"
