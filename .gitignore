@@ -1,0 +1,46 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build artifacts
+/build/
+/dist/
+*.o
+*.elf
+*.bin
+*.img
+*.iso
+*.qcow2
+
+# QEMU / OVMF
+/ovmf/
+*.log
+
+# Secrets
+.env
+*.pem
+*.key
+credentials.json
+
+# Coverage
+/coverage/
+*.profraw
+*.profdata
+lcov.info
+
+# Temporary
+/tmp/
+*.tmp

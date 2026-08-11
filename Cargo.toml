@@ -1,0 +1,37 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/aether-types",
+    "crates/aether-abi",
+    "crates/aether-logger",
+]
+default-members = [
+    "crates/aether-types",
+    "crates/aether-abi",
+    "crates/aether-logger",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/aether-os/aether-os"
+authors = ["Aether OS Contributors"]
+
+[workspace.dependencies]
+aether-types = { path = "crates/aether-types" }
+aether-abi = { path = "crates/aether-abi" }
+aether-logger = { path = "crates/aether-logger" }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+opt-level = "z"
+strip = true
+
+[profile.test]
+# Uses the default unwind panic strategy for host tests.
