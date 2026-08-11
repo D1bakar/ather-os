@@ -5,6 +5,8 @@ members = [
     "crates/aether-abi",
     "crates/aether-logger",
     "kernel",
+    "boot",
+    "tests",
 ]
 default-members = [
     "crates/aether-types",
@@ -25,6 +27,8 @@ aether-types = { path = "crates/aether-types", default-features = false }
 aether-abi = { path = "crates/aether-abi" }
 aether-logger = { path = "crates/aether-logger" }
 aether-kernel = { path = "kernel" }
+log = { version = "0.4", default-features = false }
+uefi = { version = "0.33", default-features = false, features = ["alloc", "logger"] }
 
 [profile.dev]
 panic = "abort"

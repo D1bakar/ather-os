@@ -11,10 +11,17 @@ authors.workspace = true
 default = ["host-stub"]
 # M0: compile and test on the host CI runner.
 host-stub = ["aether-types/std"]
-# M1: build with --no-default-features --target x86_64-unknown-none
+# M1: build with --no-default-features --features bare-metal
 bare-metal = []
 
 [lib]
+
+[[bin]]
+name = "kernel"
+path = "src/main.rs"
+required-features = ["bare-metal"]
+test = false
+doc = false
 
 [dependencies]
 aether-types = { workspace = true, default-features = false }

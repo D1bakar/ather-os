@@ -1,9 +1,7 @@
 # Aether OS
 
-A security-first, Rust-native operating system for **x86_64**, bootable via **UEFI**
-(planned M1). This repository contains the M0 engineering foundation: shared crates,
-documentation, architecture decision records, CI, and kernel stubs — **not a
-bootable OS yet**.
+A security-first, Rust-native operating system for **x86_64**, bootable via **UEFI**.
+M1 delivers a minimal UEFI boot path, bare-metal kernel entry, and serial output in QEMU.
 
 ## Why Aether OS?
 
@@ -12,18 +10,20 @@ bootable OS yet**.
 - **Explicit architecture** — numbered ADRs, threat model, and honest milestone tracking.
 - **Stable syscall ABI** — numbers and register layouts in `aether-abi` (scaffold only until M4).
 
-## Current status (M0)
+## Current status (M1)
 
 | Capability | Status |
 |------------|--------|
 | Workspace and shared crates | Shipped |
-| Kernel stub (`aether-kernel`) | Shipped (host stub; bare metal M1) |
-| Documentation and ADRs | Shipped |
-| CI (fmt, clippy, test, build) | Shipped |
-| UEFI boot loader | Planned M1 |
-| Bootable kernel / QEMU run | Planned M1 |
+| UEFI boot loader (`aether-boot`) | Shipped |
+| Bare-metal kernel entry + serial | Shipped |
+| QEMU boot (serial smoke test) | Verified when QEMU + OVMF installed |
+| Physical / virtual memory manager | Planned M2 |
+| Scheduler / syscalls | Planned M3–M4 |
 
-**The OS does not boot.** Do not expect `make run` to launch a working system until M1.
+**What works:** Build `BOOTX64.EFI` + `kernel.elf`, assemble a FAT ESP, boot under QEMU + OVMF, and print `Aether OS kernel started` on serial.
+
+**What does not work yet:** Real PC hardware boot (untested), full UEFI memory-map handoff, GDT/IDT, paging, heap, or user space.
 
 ## Architecture
 
@@ -39,15 +39,15 @@ graph TB
         LIBC[libc]
     end
 
-    subgraph kernelspace["Kernel (planned M1+)"]
+    subgraph kernelspace["Kernel (M1 serial only)"]
         KERN[aether-kernel]
     end
 
-    subgraph boot["Boot (planned M1)"]
+    subgraph boot["Boot (M1)"]
         BL[UEFI boot loader]
     end
 
-    subgraph m0["M0 foundation"]
+    subgraph m0["Foundation"]
         TYPES[aether-types]
         ABI[aether-abi]
         LOG[aether-logger]
@@ -66,47 +66,86 @@ graph TB
 
 ```
 .
-├── boot/                  # UEFI boot loader (M1)
-├── kernel/                # aether-kernel crate (M0 stub)
+├── boot/                  # UEFI boot loader (aether-boot)
+├── kernel/                # aether-kernel crate
 ├── crates/
-│   ├── aether-types/      # Addresses, errors, page flags
+│   ├── aether-types/      # Addresses, BootInfo, errors
 │   ├── aether-abi/        # Syscall ABI
 │   └── aether-logger/     # Structured logging
-├── user/                  # User programs (future)
-├── system/                # System config (future)
-├── drivers/               # Drivers (future)
-├── libs/                  # User-space libs (future)
-├── tools/                 # Host tools
-├── tests/                 # Integration tests (future)
+├── scripts/               # build-boot, run-qemu
+├── tests/                 # QEMU integration smoke test
 ├── docs/
 │   ├── adr/               # Architecture Decision Records
 │   └── hardware/          # Hardware compatibility matrix
-├── scripts/               # Build helpers
 └── .github/workflows/     # CI
 ```
 
 ## Prerequisites
 
-- **Rust 1.85.0** — installed automatically via [rustup](https://rustup.rs/) and [rust-toolchain.toml](rust-toolchain.toml)
-- **rustfmt** and **clippy** — installed with the pinned toolchain
-- **GNU Make** or **PowerShell** for build scripts
-- **QEMU** and **OVMF** — required from **M1** onward for `make run`
+- **Rust 1.85.0** — via [rust-toolchain.toml](rust-toolchain.toml) (`rust-src` required for kernel `build-std`)
+- **rustfmt** and **clippy**
+- **QEMU** (`qemu-system-x86_64`) and **OVMF** — for `make run` / QEMU smoke test
+- **GNU Make** or **PowerShell**
 
 ### Windows (PowerShell)
 
 ```powershell
-.\scripts\build.ps1 check   # fmt, clippy, test, build
-.\scripts\build.ps1 build
+.\scripts\build-boot.ps1          # BOOTX64.EFI + kernel.elf → build/esp/
+.\scripts\run-qemu.ps1            # Boot in QEMU (requires OVMF)
+.\scripts\build.ps1 check         # fmt, clippy, test, build
 ```
 
 ### Unix / Make
 
 ```bash
-make test    # fmt, clippy, test
-make build
+make run                          # runs scripts/run-qemu.sh
+bash scripts/build-boot.sh
+make test
 ```
 
-## Build and test
+## Build and boot
+
+### Cross targets
+
+```bash
+rustup target add x86_64-unknown-uefi x86_64-unknown-none
+```
+
+### Boot loader + kernel
+
+```powershell
+.\scripts\build-boot.ps1
+```
+
+This produces:
+
+- `build/esp/EFI/BOOT/BOOTX64.EFI`
+- `build/esp/aether/kernel.elf`
+
+Bare-metal kernel build uses `RUSTC_BOOTSTRAP=1` and `-Z build-std=core,compiler_builtins`.
+
+### QEMU + OVMF
+
+Install QEMU and OVMF, then place firmware files under `ovmf/` **or** use system paths:
+
+| File | Common locations |
+|------|------------------|
+| `OVMF_CODE.fd` | `ovmf/`, `/usr/share/OVMF/`, `%ProgramFiles%\qemu\share\` |
+| `OVMF_VARS.fd` | same |
+
+```powershell
+.\scripts\run-qemu.ps1
+```
+
+Serial output is written to `build/qemu-serial.log`. The smoke test passes when the log contains `Aether OS kernel started`.
+
+Run the integration test (ignored by default in CI quality gate):
+
+```bash
+cargo test -p aether-integration-tests -- --ignored
+```
+
+### Host workspace checks
 
 ```bash
 cargo fmt --all -- --check
@@ -115,19 +154,12 @@ cargo test --workspace
 cargo build --workspace
 ```
 
-### Kernel bare-metal build (M1 path — not required for M0 CI)
-
-```bash
-rustup target add x86_64-unknown-none
-cargo build -p aether-kernel --no-default-features --target x86_64-unknown-none
-```
-
 ## Roadmap
 
 | Milestone | Scope | Status |
 |-----------|-------|--------|
-| **M0** | Foundation, docs, ADRs, shared crates, CI | Current |
-| **M1** | UEFI boot, minimal kernel, serial, QEMU boot | Next |
+| **M0** | Foundation, docs, ADRs, shared crates, CI | Shipped |
+| **M1** | UEFI boot, minimal kernel, serial, QEMU boot | **Current** |
 | **M2** | Physical/virtual memory | Planned |
 | **M3** | Scheduler, preemption | Planned |
 | **M4** | Syscall dispatch | Planned |

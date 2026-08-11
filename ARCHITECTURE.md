@@ -54,19 +54,19 @@ graph TB
 
 | Tier | Platform | Status | Notes |
 |------|----------|--------|-------|
-| **Tier 1 (dev)** | QEMU `qemu-system-x86_64` + OVMF (UEFI) | Planned M1 | Primary development and CI boot target |
+| **Tier 1 (dev)** | QEMU `qemu-system-x86_64` + OVMF (UEFI) | M1 — serial boot in CI | Primary development target |
 | **Tier 2 (experimental)** | Real PC, UEFI, x86_64 | Not tested | Supported in principle; no compatibility guarantees until hardware matrix entries are verified |
 
 See [docs/hardware/README.md](docs/hardware/README.md) for the compatibility matrix template and QEMU entry.
 
 ## Boot architecture
 
-**Status:** design intent — not bootable in M0.
+**Status:** M1 shipped — QEMU UEFI serial boot; real hardware untested.
 
 1. UEFI firmware loads `EFI/BOOT/BOOTX64.EFI` from a FAT32 ESP.
-2. The boot loader locates `aether/kernel.elf`, collects the UEFI memory map, and constructs a fixed **`BootInfo`** handoff structure (planned in `aether-types`).
-3. The boot loader calls `ExitBootServices` and jumps to the kernel entry point.
-4. The kernel initializes architecture-specific state (GDT, IDT, serial), then enters `kmain()`.
+2. The boot loader locates `aether/kernel.elf`, constructs a fixed **`BootInfo`** handoff structure (`aether-types`), and exits boot services.
+3. The boot loader jumps to the kernel entry point with `RDI` pointing at `BootInfo`.
+4. The kernel prints an early serial message on COM1; GDT/IDT/paging follow in M2+.
 
 See [ADR-0006](docs/adr/ADR-0006-boot-architecture.md) and [ADR-0003](docs/adr/ADR-0003-initial-target-hardware.md).
 

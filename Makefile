@@ -25,18 +25,7 @@ test: fmt clippy
 	$(CARGO) test --workspace
 
 run:
-	@echo "============================================================"
-	@echo "  Aether OS boot target is not yet available."
-	@echo ""
-	@echo "  Boot loader and kernel implementation begins in M1."
-	@echo "  Once M1 lands, this target will:"
-	@echo "    1. Build boot loader (BOOTX64.EFI) and kernel (kernel.elf)"
-	@echo "    2. Create a FAT32 disk image with ESP layout"
-	@echo "    3. Launch QEMU with OVMF UEFI firmware"
-	@echo ""
-	@echo "  See docs/architecture/001-initial-decisions.md for details."
-	@echo "============================================================"
-	@exit 1
+	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-qemu.ps1
 
 clean:
 	$(CARGO) clean
@@ -47,6 +36,7 @@ fmt:
 	$(CARGO) fmt --all
 
 clippy:
-	$(CARGO) clippy --workspace --all-targets -- -D warnings
+	$(CARGO) clippy --workspace --exclude aether-boot --all-targets -- -D warnings
+	$(CARGO) clippy -p aether-boot --target x86_64-unknown-uefi -- -D warnings
 
 check: test

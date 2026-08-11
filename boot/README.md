@@ -1,19 +1,32 @@
 # Boot Loader
 
-> **Status:** Placeholder — implementation begins in **Milestone M1**.
+> **Status:** Shipped in **Milestone M1** (UEFI + QEMU serial boot).
 
-The UEFI boot loader will:
+The UEFI boot loader:
 
-1. Locate and load the kernel ELF from the EFI System Partition.
-2. Collect the UEFI memory map.
-3. Exit boot services.
-4. Jump to the kernel entry point with a `BootInfo` handoff structure.
+1. Locates and loads `aether/kernel.elf` from the EFI System Partition.
+2. Parses ELF64 program headers and maps PT_LOAD segments.
+3. Allocates and fills a [`BootInfo`](../crates/aether-types/src/boot_info.rs) structure.
+4. Calls `ExitBootServices` and jumps to the kernel entry (`RDI` = BootInfo pointer).
 
 See [ADR-0006](../docs/adr/ADR-0006-boot-architecture.md) for the boot strategy.
 
-## M1 Deliverables
+## Build
 
-- `boot/Cargo.toml` with `x86_64-unknown-uefi` target
-- UEFI application using the `uefi` crate
-- FAT32 ESP layout (`EFI/BOOT/BOOTX64.EFI`, `aether/kernel.elf`)
-- Handoff structure shared via `aether-types`
+```powershell
+cargo build -p aether-boot --target x86_64-unknown-uefi --release
+```
+
+Output: `target/x86_64-unknown-uefi/release/bootx64.efi` (copied to `build/esp/EFI/BOOT/BOOTX64.EFI` by `scripts/build-boot.ps1`).
+
+## ESP layout
+
+```
+EFI/BOOT/BOOTX64.EFI    ← this crate
+aether/kernel.elf       ← aether-kernel bare-metal binary
+```
+
+## M2 follow-ups
+
+- Copy full UEFI memory map into `BootInfo`.
+- Locate ACPI RSDP and GOP framebuffer when available.

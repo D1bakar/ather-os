@@ -21,7 +21,8 @@ EOF
 
 cmd_check() {
     cargo fmt --all -- --check
-    cargo clippy --workspace --all-targets -- -D warnings
+    cargo clippy --workspace --exclude aether-boot --all-targets -- -D warnings
+    cargo clippy -p aether-boot --target x86_64-unknown-uefi -- -D warnings
     cargo test --workspace
     cargo build --workspace
     echo "All checks passed."

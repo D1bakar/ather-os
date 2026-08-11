@@ -1,0 +1,19 @@
+[package]
+name = "aether-boot"
+description = "Aether OS UEFI boot loader"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "bootx64"
+path = "src/main.rs"
+test = false
+doc = false
+
+[dependencies]
+aether-types = { workspace = true, default-features = false }
+log = { workspace = true }
+uefi = { workspace = true }

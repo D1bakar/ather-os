@@ -27,7 +27,9 @@ Commands:
 function Invoke-Check {
     cargo fmt --all -- --check
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    cargo clippy --workspace --all-targets -- -D warnings
+    cargo clippy --workspace --exclude aether-boot --all-targets -- -D warnings
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    cargo clippy -p aether-boot --target x86_64-unknown-uefi -- -D warnings
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     cargo test --workspace
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

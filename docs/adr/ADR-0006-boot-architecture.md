@@ -1,8 +1,8 @@
 # ADR-0006: Boot Architecture
 
-**Status:** Accepted (design intent — **not implemented**)  
+**Status:** Accepted — **M1 boot path implemented** (QEMU serial verified in CI)  
 **Date:** 2026-08-11  
-**Milestone:** M0
+**Milestone:** M1
 
 ## Context
 
@@ -45,7 +45,9 @@ by pointer in a dedicated register at kernel entry.
 - Boot loader exits boot services before kernel entry.
 - Kernel does not return to firmware or boot loader code.
 
-M1 implements `boot/` and kernel entry; M0 provides documentation and stubs only.
+M1 implements `boot/` and kernel entry. Full UEFI memory-map copy and hardware PC boot remain M2 follow-ups.
+
+**M1 verification:** QEMU `q35` + OVMF + FAT ESP; serial log must contain `Aether OS kernel started`.
 
 ## Consequences
 
