@@ -1,0 +1,12 @@
+[package]
+name = "aether-serial"
+description = "Host serial monitor for Aether OS QEMU and log files"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "aether-serial"
+path = "src/main.rs"
