@@ -1,0 +1,56 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-host:
+    name: Build (host)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.85.0
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-
+
+      - name: Build workspace
+        run: cargo build --workspace --release
+
+      - name: Upload artifacts
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-crates-${{ github.sha }}
+          path: target/release/
+          retention-days: 7
+
+  # Cross-target kernel/boot builds will be added in M1.
+  build-future:
+    name: Cross-target (M1 placeholder)
+    runs-on: ubuntu-latest
+    needs: build-host
+    steps:
+      - run: echo "UEFI boot loader and kernel cross-compilation targets will be added in M1."

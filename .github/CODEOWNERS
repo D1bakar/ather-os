@@ -1,0 +1,13 @@
+# Default owners for all files in the repository.
+# Replace with actual GitHub usernames when the org is set up.
+* @aether-os/maintainers
+
+# Architecture decisions require maintainer review
+/docs/architecture/ @aether-os/maintainers
+
+# CI workflows
+/.github/ @aether-os/maintainers
+
+# Kernel and boot (M1+)
+/kernel/ @aether-os/maintainers
+/boot/ @aether-os/maintainers

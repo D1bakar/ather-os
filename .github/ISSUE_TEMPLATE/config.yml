@@ -1,0 +1,12 @@
+---
+name: Config
+description: Issue template configuration
+body: []
+blank_issues_enabled: false
+contact_links:
+  - name: Architecture Decisions
+    url: https://github.com/aether-os/aether-os/tree/main/docs/architecture
+    about: Read the ADRs before proposing major changes
+  - name: Contributing Guide
+    url: https://github.com/aether-os/aether-os/blob/main/CONTRIBUTING.md
+    about: Development workflow and code standards
