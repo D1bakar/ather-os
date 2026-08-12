@@ -72,12 +72,14 @@ fn qemu_boot_prints_kernel_message() {
         log.contains(EXPECTED_M4),
         "serial log missing M4 scheduler message: {EXPECTED_M4}\n---\n{log}"
     );
-    if log.contains(EXPECTED_M6) {
-        eprintln!("QEMU smoke: M6 userland banner observed");
-    }
-    if log.contains(EXPECTED_INIT) {
-        eprintln!("QEMU smoke: ring-3 init message observed");
-    }
+    assert!(
+        log.contains(EXPECTED_M6),
+        "serial log missing M6 userland banner: {EXPECTED_M6}\n---\n{log}"
+    );
+    assert!(
+        log.contains(EXPECTED_INIT),
+        "serial log missing ring-3 init message: {EXPECTED_INIT}\n---\n{log}"
+    );
     // Timer ticks and worker thread output appear after STI; optional if QEMU run is short.
     if log.contains(EXPECTED_TIMER) {
         eprintln!("QEMU smoke: timer tick output observed");

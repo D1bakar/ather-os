@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "$NO_BUILD" -eq 0 ]]; then
-    "$ROOT/scripts/build-boot.sh"
+    bash "$ROOT/scripts/build-boot.sh"
 fi
 
 ESP_DIR="$ROOT/build/esp"
@@ -74,7 +74,7 @@ QEMU_PID=$!
 
 deadline=$((SECONDS + TIMEOUT))
 while (( SECONDS < deadline )); do
-    if [[ -f "$LOG_FILE" ]] && grep -q "Aether OS M2: GDT/IDT/interrupts initialized" "$LOG_FILE"; then
+    if [[ -f "$LOG_FILE" ]] && grep -q "Aether init started" "$LOG_FILE"; then
         break
     fi
     if ! kill -0 "$QEMU_PID" 2>/dev/null; then
@@ -95,10 +95,24 @@ echo "--- serial log ---"
 cat "$LOG_FILE"
 echo "------------------"
 
-if grep -q "Aether OS M2: GDT/IDT/interrupts initialized" "$LOG_FILE"; then
-    echo "QEMU boot smoke test: PASS"
+missing=()
+for pattern in \
+    "Aether OS kernel started" \
+    "Aether OS M2: GDT/IDT/interrupts initialized" \
+    "Aether OS M4: scheduler initialized" \
+    "Aether OS M6: userland started" \
+    "Aether init started"
+do
+    if ! grep -q "$pattern" "$LOG_FILE"; then
+        missing+=("$pattern")
+    fi
+done
+
+if ((${#missing[@]} == 0)); then
+    echo "QEMU boot smoke test: PASS (ring-3 init verified)"
     exit 0
 fi
 
-echo "Expected serial output not found: 'Aether OS M2: GDT/IDT/interrupts initialized'" >&2
+echo "QEMU boot smoke test: FAIL — missing serial output:" >&2
+printf '  - %s\n' "${missing[@]}" >&2
 exit 1

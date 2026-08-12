@@ -5,14 +5,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 fn main() {
-    let target = env::var("TARGET").unwrap_or_default();
-    if target == "x86_64-unknown-none" {
-        let manifest_dir =
-            PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
-        let linker = manifest_dir.join("linker.ld");
-        println!("cargo:rustc-link-arg=-T{}", linker.display());
-    }
-
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR"));
     let init_src = Path::new("../build/user/init.elf");
     let init_dst = out_dir.join("init.elf");

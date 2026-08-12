@@ -75,7 +75,7 @@ $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 while ((Get-Date) -lt $deadline) {
     Start-Sleep -Milliseconds 250
     if ($proc.HasExited) { break }
-    if ((Test-Path $LogFile) -and (Select-String -Path $LogFile -Pattern "Aether OS M2: GDT/IDT/interrupts initialized" -Quiet)) {
+    if ((Test-Path $LogFile) -and (Select-String -Path $LogFile -Pattern "Aether init started" -Quiet)) {
         break
     }
 }
@@ -92,9 +92,19 @@ Write-Host "--- serial log ---"
 Get-Content $LogFile
 Write-Host "------------------"
 
-if (Select-String -Path $LogFile -Pattern "Aether OS M2: GDT/IDT/interrupts initialized" -Quiet) {
-    Write-Host "QEMU boot smoke test: PASS"
+$RequiredPatterns = @(
+    "Aether OS kernel started",
+    "Aether OS M2: GDT/IDT/interrupts initialized",
+    "Aether OS M4: scheduler initialized",
+    "Aether OS M6: userland started",
+    "Aether init started"
+)
+
+$Missing = @($RequiredPatterns | Where-Object { -not (Select-String -Path $LogFile -Pattern ([regex]::Escape($_)) -Quiet) })
+
+if ($Missing.Count -eq 0) {
+    Write-Host "QEMU boot smoke test: PASS (ring-3 init verified)"
     exit 0
 }
 
-Write-Error "Expected serial output not found: 'Aether OS M2: GDT/IDT/interrupts initialized'"
+Write-Error ("QEMU boot smoke test: FAIL — missing serial output:`n  - " + ($Missing -join "`n  - "))

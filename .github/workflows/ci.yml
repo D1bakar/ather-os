@@ -109,11 +109,13 @@ jobs:
 
       - name: Run QEMU smoke test
         env:
-          TIMEOUT: 35
+          TIMEOUT: 45
         run: bash scripts/run-qemu.sh
 
-      - name: Check for timer ticks (optional)
+      - name: Verify ring-3 init serial output
         run: |
+          grep -q "Aether OS M6: userland started" build/qemu-serial.log
+          grep -q "Aether init started" build/qemu-serial.log
           if grep -q '\[timer\] tick' build/qemu-serial.log; then
             echo "Timer tick output observed"
           else

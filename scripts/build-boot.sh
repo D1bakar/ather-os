@@ -17,6 +17,9 @@ mkdir -p "$BOOT_EFI_DIR" "$KERNEL_DIR"
 echo "==> Adding Rust targets"
 rustup target add x86_64-unknown-uefi x86_64-unknown-none
 
+echo "==> Building user-space binaries (init.elf)"
+bash "$ROOT/scripts/build-user.sh"
+
 echo "==> Building UEFI boot loader"
 cargo build -p aether-boot --target x86_64-unknown-uefi --release
 

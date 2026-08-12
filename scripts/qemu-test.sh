@@ -34,7 +34,7 @@ if ! command -v qemu-system-x86_64 >/dev/null 2>&1; then
 fi
 
 if [[ "$NO_BUILD" -eq 0 ]]; then
-    "$ROOT/scripts/build-boot.sh"
+    bash "$ROOT/scripts/build-boot.sh"
 fi
 
-exec "$ROOT/scripts/run-qemu.sh" --no-build
+exec bash "$ROOT/scripts/run-qemu.sh" --no-build
