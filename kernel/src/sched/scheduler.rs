@@ -49,7 +49,11 @@ pub fn init() {
 
         IDLE_TASK = Some(Task::new(allocate_task_id(), idle_entry as u64, stack_top, cr3));
 
-        let idle_ptr = NonNull::from(IDLE_TASK.as_mut().expect("idle task"));
+        let idle_ptr = NonNull::from(
+            (&mut *core::ptr::addr_of_mut!(IDLE_TASK))
+                .as_mut()
+                .expect("idle task"),
+        );
         (*idle_ptr.as_ptr()).state = TaskState::Ready;
 
         register_kernel_thread(idle_ptr);
@@ -70,7 +74,11 @@ pub fn spawn_worker_thread() -> TaskId {
         let stack_top = core::ptr::addr_of_mut!(WORKER_STACK) as u64 + KERNEL_STACK_SIZE as u64;
         let id = allocate_task_id();
         WORKER_TASK = Some(Task::new(id, worker_entry as u64, stack_top, cr3));
-        let worker_ptr = NonNull::from(WORKER_TASK.as_mut().expect("worker task"));
+        let worker_ptr = NonNull::from(
+            (&mut *core::ptr::addr_of_mut!(WORKER_TASK))
+                .as_mut()
+                .expect("worker task"),
+        );
         register_kernel_thread(worker_ptr);
         enqueue(worker_ptr);
         id
@@ -94,7 +102,11 @@ pub fn start() -> ! {
 
     // SAFETY: Idle task and boot context are initialized; no other tasks run yet.
     unsafe {
-        let idle_ptr = NonNull::from(IDLE_TASK.as_mut().expect("idle task"));
+        let idle_ptr = NonNull::from(
+            (&mut *core::ptr::addr_of_mut!(IDLE_TASK))
+                .as_mut()
+                .expect("idle task"),
+        );
         (*idle_ptr.as_ptr()).state = TaskState::Running;
         CURRENT = Some(idle_ptr);
 

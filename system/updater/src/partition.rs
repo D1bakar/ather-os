@@ -160,7 +160,6 @@ impl BootControlBlock {
     }
 
     /// Validates magic and version fields.
-    #[must_use]
     pub fn validate(&self) -> Result<(), UpdateError> {
         if self.magic != BOOT_CONTROL_MAGIC {
             return Err(UpdateError::new(UpdateErrorCode::InvalidManifest));

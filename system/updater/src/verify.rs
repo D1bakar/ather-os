@@ -104,7 +104,6 @@ impl UpdateManifest {
     }
 
     /// Validates structural fields (not cryptographic signature).
-    #[must_use]
     pub fn validate_structure(&self) -> Result<(), UpdateError> {
         if self.magic != UPDATE_MANIFEST_MAGIC {
             return Err(UpdateError::new(UpdateErrorCode::InvalidManifest));

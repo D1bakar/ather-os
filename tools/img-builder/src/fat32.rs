@@ -18,7 +18,7 @@ pub fn build_image(path: &Path, size_bytes: u64, files: &[(&str, Vec<u8>)]) -> R
     let total_sectors = (size_bytes / SECTOR_SIZE as u64) as u32;
     let data_sectors = total_sectors - RESERVED_SECTORS;
     let cluster_count = data_sectors / SECTORS_PER_CLUSTER;
-    let fat_size = ((cluster_count + 2) * 4 + SECTOR_SIZE - 1) / SECTOR_SIZE;
+    let fat_size = ((cluster_count + 2) * 4).div_ceil(SECTOR_SIZE);
     let first_data_sector = RESERVED_SECTORS + NUM_FATS * fat_size;
     let data_start = first_data_sector as u64 * SECTOR_SIZE as u64;
 
@@ -286,10 +286,8 @@ fn find_free_dir_slot(buf: &[u8], name: &str) -> Result<Option<usize>, String> {
     let needed = (lfn_slots(name) + 1) * 32;
     let mut offset = 0usize;
     while offset + needed <= buf.len() {
-        if buf[offset] == 0 || buf[offset] == 0xE5 {
-            if slot_run_free(buf, offset, needed) {
-                return Ok(Some(offset));
-            }
+        if (buf[offset] == 0 || buf[offset] == 0xE5) && slot_run_free(buf, offset, needed) {
+            return Ok(Some(offset));
         }
         offset += 32;
     }

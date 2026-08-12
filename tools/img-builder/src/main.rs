@@ -121,7 +121,7 @@ fn info_esp(esp: &Path) -> Result<(), String> {
 fn count_tree(root: &Path) -> Result<(u64, u64), String> {
     let mut files = 0u64;
     let mut bytes = 0u64;
-    walk(root, root, &mut |path| {
+    walk(root, &mut |path| {
         if path.is_file() {
             files += 1;
             bytes += fs::metadata(path).map_err(|e| e.to_string())?.len();
@@ -145,7 +145,7 @@ fn build_image(esp: &Path, output: &Path, size_mb: u64) -> Result<(), String> {
         size_mb.checked_mul(1024 * 1024).ok_or_else(|| "image size overflow".to_string())?;
 
     let mut entries = Vec::new();
-    walk(esp, esp, &mut |path| {
+    walk(esp, &mut |path| {
         if path.is_file() {
             let rel = path.strip_prefix(esp).map_err(|_| "path outside ESP".to_string())?;
             let rel_unix = rel.to_string_lossy().replace('\\', "/");
@@ -170,17 +170,13 @@ fn normalize_rel(rel: &str) -> PathBuf {
     PathBuf::from(rel.replace('/', std::path::MAIN_SEPARATOR_STR))
 }
 
-fn walk(
-    root: &Path,
-    dir: &Path,
-    visit: &mut dyn FnMut(&Path) -> Result<(), String>,
-) -> Result<(), String> {
+fn walk(dir: &Path, visit: &mut dyn FnMut(&Path) -> Result<(), String>) -> Result<(), String> {
     for entry in fs::read_dir(dir).map_err(|e| format!("read {}: {e}", dir.display()))? {
         let entry = entry.map_err(|e| e.to_string())?;
         let path = entry.path();
         visit(&path)?;
         if path.is_dir() {
-            walk(root, &path, visit)?;
+            walk(&path, visit)?;
         }
     }
     Ok(())

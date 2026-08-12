@@ -40,6 +40,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration test crate (`tests/qemu_boot.rs`) with ignored QEMU boot smoke test.
 - CI jobs to compile boot loader and bare-metal kernel; optional QEMU job on Ubuntu.
 
+### Fixed
+
+- CI bare-metal build: include `alloc` in `-Z build-std` to match `build-boot` scripts (fixes duplicate `core` lang item in `aether-collections`).
+- CI / Build workflow: exclude `aether-boot` from host workspace builds (fixes duplicate `panic_impl` on Linux host).
+- Integration tests: split `support/rng` from sync-only tests so `-D warnings` clippy gates pass for `security_m5` and `sched_syscall`.
+- Clippy: remove redundant `#[must_use]` on `Result` returns in `aether-updater`; fix `aether-img-builder` lints.
+- Kernel bare-metal: use `addr_of_mut!` for static task/registry access (Rust 2024 `static_mut_refs` under `-D warnings`).
+
 ### Changed
 
 - Kernel boot sequence: `mm::init` → GDT/IDT/PIC/timer → `sched::init` → worker thread → `syscall::init` → `sched::start` (STI + first context switch).

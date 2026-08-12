@@ -45,11 +45,13 @@ struct BootInfoSnapshot {
 static mut REGISTRY: [Option<DriverOps>; 8] = [None; 8];
 static mut REGISTRY_LEN: usize = 0;
 
+const REGISTRY_CAPACITY: usize = 8;
+
 /// Registers a driver in the static table (early boot, single-threaded).
 pub fn register_driver(ops: DriverOps) {
     // SAFETY: Called sequentially during driver registration before init.
     unsafe {
-        if REGISTRY_LEN < REGISTRY.len() {
+        if REGISTRY_LEN < REGISTRY_CAPACITY {
             REGISTRY[REGISTRY_LEN] = Some(ops);
             REGISTRY_LEN += 1;
         }
@@ -148,9 +150,12 @@ pub fn register_builtin_drivers() {
 pub fn init_drivers() {
     // SAFETY: Single-threaded early boot.
     unsafe {
-        for entry in REGISTRY.iter().take(REGISTRY_LEN).flatten() {
-            if (entry.probe)() {
-                let _ = (entry.init)();
+        for index in 0..REGISTRY_LEN {
+            let entry = &*core::ptr::addr_of!(REGISTRY[index]);
+            if let Some(ops) = entry {
+                if (ops.probe)() {
+                    let _ = (ops.init)();
+                }
             }
         }
     }

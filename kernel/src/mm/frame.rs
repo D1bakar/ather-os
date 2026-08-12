@@ -217,10 +217,10 @@ fn reserved_regions(boot_info: &BootInfo) -> [ReservedRegion; 4] {
 fn kernel_image_bounds() -> (u64, u64) {
     #[cfg(not(feature = "host-stub"))]
     {
-        // SAFETY: Linker symbols are valid for the kernel ELF image.
-        unsafe {
-            (core::ptr::addr_of!(__kernel_start) as u64, core::ptr::addr_of!(__kernel_end) as u64)
-        }
+        (
+            core::ptr::addr_of!(__kernel_start) as u64,
+            core::ptr::addr_of!(__kernel_end) as u64,
+        )
     }
     #[cfg(feature = "host-stub")]
     {
