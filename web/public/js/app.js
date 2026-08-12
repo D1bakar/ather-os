@@ -3,6 +3,21 @@
  * Does NOT simulate an OS terminal; serial pane reflects worker messages only.
  */
 
+/** Resolve asset URLs for local serve (/) and GitHub Pages (/ather-os/). */
+function assetUrl(relativePath) {
+  const clean = relativePath.replace(/^\//, "");
+  const meta = document.querySelector('meta[name="aether-base"]');
+  if (meta?.content) {
+    const base = meta.content.endsWith("/") ? meta.content : `${meta.content}/`;
+    return `${base}${clean}`;
+  }
+  const pagesMatch = location.pathname.match(/^(.*\/ather-os)\/?/i);
+  if (pagesMatch) {
+    return `${pagesMatch[1]}/${clean}`;
+  }
+  return clean;
+}
+
 const bootStatusEl = document.getElementById("boot-status");
 const manifestMetaEl = document.getElementById("manifest-meta");
 const artifactBodyEl = document.getElementById("artifact-body");
@@ -77,7 +92,7 @@ function renderManifest(manifest) {
 
 async function loadManifest() {
   try {
-    const res = await fetch("manifest.json", { cache: "no-store" });
+    const res = await fetch(assetUrl("manifest.json"), { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const manifest = await res.json();
     renderManifest(manifest);
@@ -102,7 +117,7 @@ function probeWorker() {
   }
 
   appendSerial("[vm] spawning worker…");
-  const worker = new Worker("/vm/worker.js", { type: "module" });
+  const worker = new Worker(assetUrl("vm/worker.js"), { type: "module" });
 
   worker.onmessage = (ev) => {
     const msg = ev.data;
@@ -117,7 +132,7 @@ function probeWorker() {
     appendSerial(`[vm] worker error: ${err.message}`);
   };
 
-  worker.postMessage({ type: "init", manifestUrl: "manifest.json" });
+  worker.postMessage({ type: "init", manifestUrl: assetUrl("manifest.json") });
 }
 
 vmProbeBtn.addEventListener("click", probeWorker);

@@ -32,12 +32,16 @@ From repository root:
 # Copy artifacts + generate web/public/manifest.json
 .\scripts\build-web-artifacts.ps1
 
-# Serve landing page
+# Serve landing page (static files in public/)
 cd web
 npm run serve
 ```
 
+Or from repository root: `.\web\serve.ps1` (Windows) / `./web/serve.sh` (Unix).
+
 Open http://localhost:8080 — the page loads `manifest.json` and lists artifact SHA-256 hashes.
+
+**Live demo:** https://d1bakar.github.io/ather-os/
 
 ## Directory layout
 
@@ -50,9 +54,10 @@ web/
 │   ├── css/style.css
 │   ├── js/app.js        Manifest loader + VM status
 │   ├── manifest.json    Generated (do not hand-edit)
-│   └── artifacts/       Generated ESP copy
+│   ├── artifacts/       Generated ESP copy
+│   └── vm/              Copied from ../vm/ at build time
 └── vm/
-    ├── worker.js        Web Worker entry (serial bridge stub)
+    ├── worker.js        Source — copied to public/vm/
     └── emulator-stub.js Placeholder until qemu.wasm is integrated
 ```
 

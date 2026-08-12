@@ -5,7 +5,7 @@
   "description": "Static landing page and future in-browser VM for real Aether OS artifacts",
   "scripts": {
     "build:artifacts": "powershell -ExecutionPolicy Bypass -File ../scripts/build-web-artifacts.ps1",
-    "serve": "npx --yes serve . -p 8080",
+    "serve": "npx --yes serve public -p 8080",
     "start": "npm run serve"
   },
   "keywords": ["aether-os", "uefi", "qemu.wasm"],

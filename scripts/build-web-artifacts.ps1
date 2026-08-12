@@ -120,6 +120,22 @@ $manifest = [ordered]@{
 $json = $manifest | ConvertTo-Json -Depth 6
 $json | Set-Content -Encoding UTF8 $ManifestOut
 
+# Copy VM worker sources into public/ for static hosting (local + GitHub Pages).
+$VmSrc = Join-Path $Root "web\vm"
+$VmDst = Join-Path $Root "web\public\vm"
+if (Test-Path $VmDst) {
+    Remove-Item -Recurse -Force $VmDst
+}
+New-Item -ItemType Directory -Force -Path $VmDst | Out-Null
+foreach ($vmFile in @("worker.js", "emulator-stub.js")) {
+    $src = Join-Path $VmSrc $vmFile
+    if (-not (Test-Path $src)) {
+        Write-Error "Missing VM source: $src"
+    }
+    Copy-Item -Force $src (Join-Path $VmDst $vmFile)
+    Write-Host ('  copied vm/{0}' -f $vmFile)
+}
+
 Write-Host ""
 Write-Host "Web artifacts ready:"
 Write-Host "  $WebArtifacts"
