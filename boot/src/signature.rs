@@ -76,9 +76,7 @@ fn find_section_name<'a>(data: &'a [u8], target: &[u8]) -> Option<&'a [u8]> {
     }
 
     let shstr_off = e_shoff + u64::from(e_shstrndx) * u64::from(e_shentsize);
-    if usize::try_from(shstr_off + 64).ok().filter(|&n| n <= data.len()).is_none() {
-        return None;
-    }
+    usize::try_from(shstr_off + 64).ok().filter(|&n| n <= data.len())?;
 
     let shstr_offset = read_u64(data, shstr_off + 0x18) as usize;
     let shstr_size = read_u64(data, shstr_off + 0x20) as usize;

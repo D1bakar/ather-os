@@ -47,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration tests: split `support/rng` from sync-only tests so `-D warnings` clippy gates pass for `security_m5` and `sched_syscall`.
 - Clippy: remove redundant `#[must_use]` on `Result` returns in `aether-updater`; fix `aether-img-builder` lints.
 - Kernel bare-metal: use `addr_of_mut!` for static task/registry access (Rust 2024 `static_mut_refs` under `-D warnings`).
+- Kernel linker: emit `linker.ld` from `build.rs` for reliable bare-metal bin links on Linux CI.
+- Fix FAT32 LFN directory entry slice bounds in `aether-img-builder`.
+- Boot loader: satisfy clippy `question_mark` in ELF section parser.
 
 ### Changed
 

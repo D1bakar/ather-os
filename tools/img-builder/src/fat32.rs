@@ -320,8 +320,8 @@ fn write_lfn_entries(buf: &mut [u8], start: usize, name: &str) -> Result<(), Str
         buf[offset + 11] = 0x0F;
         buf[offset + 12] = 0;
         buf[offset + 13] = checksum;
-        buf[offset + 26..28].copy_from_slice(&0u16.to_le_bytes());
-        buf[offset + 28..32].copy_from_slice(&0u32.to_le_bytes());
+        buf[offset + 26..offset + 28].copy_from_slice(&0u16.to_le_bytes());
+        buf[offset + 28..offset + 32].copy_from_slice(&0u32.to_le_bytes());
 
         let base = slot * 13;
         write_lfn_chunk(&mut buf[offset + 1..offset + 11], &chars, base, 5);
