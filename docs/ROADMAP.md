@@ -4,7 +4,7 @@ Honest milestone tracking for the Aether OS kernel, boot chain, and platform ser
 **Shipped** items are verified in CI or documented QEMU smoke tests unless noted otherwise.
 **Planned** items describe design intent with no runtime implementation.
 
-**Current milestone:** M2 (CPU and interrupts).
+**Current milestone:** M6.1 (QEMU-verified ring-3 init boot).
 
 ## Milestone overview (M0–M10)
 
@@ -13,10 +13,11 @@ Honest milestone tracking for the Aether OS kernel, boot chain, and platform ser
 | M0 | Foundation | **Shipped** |
 | M1 | Boot path | **Shipped** |
 | M2 | CPU and interrupts | **Shipped** |
-| M3 | Memory management | Planned |
-| M4 | Scheduler and preemption | Planned |
-| M5 | Syscalls and capabilities | Planned |
-| M6 | User space and VFS | Planned |
+| M3 | Memory management | **Shipped** |
+| M4 | Scheduler and preemption | **Shipped** |
+| M5 | Syscalls and capabilities | **Shipped** |
+| M6 | User space and VFS | **Shipped** |
+| M6.1 | QEMU-verified ring-3 init | **Shipped** |
 | M7 | Networking | Planned |
 | M8 | Graphics and input | Planned |
 | M9 | Application packaging | Planned |
@@ -80,59 +81,61 @@ Honest milestone tracking for the Aether OS kernel, boot chain, and platform ser
 
 **Not in M2:**
 
-- Local APIC / I/O APIC (planned M4)
-- Paging, physical allocator, heap (planned M3)
-- Scheduler or context switch (planned M4)
+- Local APIC / I/O APIC (follow-up)
+- Scheduler or context switch (M4)
 
 ---
 
-## M3 — Memory management (planned)
+## M3 — Memory management (shipped)
 
 **Goal:** Transition from firmware-owned memory to kernel-managed virtual memory.
 
 | Deliverable | Status |
 |-------------|--------|
-| Copy UEFI memory map into stable kernel storage | Planned |
-| Physical frame allocator (bitmap or buddy) | Planned |
-| Four-level x86_64 page tables | Planned |
-| Kernel higher-half direct map | Planned |
-| Kernel heap allocator | Planned |
-| W^X enforcement for future user mappings | Planned (design) |
+| Physical frame allocator (bitmap) | Shipped |
+| Four-level x86_64 page tables | Shipped |
+| Kernel higher-half direct map | Shipped |
+| Kernel heap allocator | Shipped |
+| W^X enforcement for user mappings | Shipped (user segments) |
 
-**Dependencies:** M2 (IDT for page-fault handler).
+**Not in M3:**
 
-**ADR:** Memory layout ADR (to be written at M3 start).
+- Copy UEFI memory map into stable kernel storage (stubbed)
+- Full page-fault recovery policy
 
 ---
 
-## M4 — Scheduler (planned)
+## M4 — Scheduler (shipped)
 
 **Goal:** Multitasking with preemptive scheduling.
 
 | Deliverable | Status |
 |-------------|--------|
-| Task Control Blocks, run queues | Planned |
-| Context switch (`arch/x86_64/switch.rs`) | Planned |
-| Cooperative yield, then preemptive round-robin | Planned |
-| APIC timer (replace or supplement PIT) | Planned |
-| User code/data segments (ring 3 scaffold) | Planned |
-| TSS + IST for double-fault / NMI stacks | Planned |
+| Task Control Blocks, run queues | Shipped |
+| Context switch (`arch/x86_64/switch.rs`) | Shipped |
+| Cooperative yield and preemptive round-robin (PIT) | Shipped |
+| Idle and worker kernel threads | Shipped |
+| User code/data GDT segments (ring 3 scaffold) | Shipped |
+| TSS + kernel stack for syscall entry | Shipped |
 
-**Dependencies:** M3 (per-process page tables, kernel stacks).
+**Not in M4:**
+
+- APIC timer (PIT path used)
+- Full interrupt-frame save on context switch (documented limitation)
 
 ---
 
-## M5 — Syscalls and capabilities (planned)
+## M5 — Syscalls and capabilities (shipped)
 
 **Goal:** User/kernel boundary with validated dispatch.
 
 | Deliverable | Status |
 |-------------|--------|
-| Syscall entry (`syscall`/`sysenter` or `int 0x80` interim) | Planned |
-| Dispatch table with fail-closed unknown syscall handling | Planned |
-| User pointer validation against caller address space | Planned |
-| Capability table scaffold and delegation API | Planned |
-| Initial syscall set: exit, yield, write (serial) | Planned |
+| Syscall entry (`SYSCALL`/`SYSRET` via IA32_STAR/LSTAR/FMASK) | Shipped |
+| Dispatch table with fail-closed unknown syscall handling | Shipped |
+| User pointer validation against caller address space | Shipped |
+| Capability table scaffold and enforcement stubs | Shipped |
+| Initial syscall set: exit, yield, write, getpid | Shipped |
 
 **Dependencies:** M4 (user-mode tasks).
 
@@ -140,20 +143,41 @@ Honest milestone tracking for the Aether OS kernel, boot chain, and platform ser
 
 ---
 
-## M6 — User space and VFS (planned)
+## M6 — User space and VFS (shipped)
 
 **Goal:** Minimal userspace environment with in-memory filesystem.
 
 | Deliverable | Status |
 |-------------|--------|
-| VFS layer with pluggable backends | Planned |
-| tmpfs (early root, `/tmp`) | Planned |
-| devfs (`/dev/serial`, `/dev/null`) | Planned |
-| User-space libc / runtime | Planned |
-| Init process and minimal shell | Planned |
-| First user-space program (e.g. `hello`) | Planned |
+| VFS layer with pluggable backends | Shipped |
+| ramfs (early root mount) | Shipped |
+| User-space runtime (`aether-rt`) | Shipped |
+| Init process (embedded ELF) | Shipped |
+| Syscalls: open, read, close | Shipped |
+| Per-process page tables and ELF64 loader | Shipped |
+| First ring-3 entry via `IRETQ` | Shipped |
 
 **Dependencies:** M5 (syscalls for file I/O and process spawn).
+
+**Not in M6:**
+
+- tmpfs, devfs
+- Minimal shell in QEMU boot path
+- Multi-process spawn
+
+---
+
+## M6.1 — QEMU-verified ring-3 init (shipped)
+
+**Goal:** End-to-end proof that init runs in ring 3 under QEMU.
+
+| Deliverable | Status |
+|-------------|--------|
+| `build-boot.sh` embeds user init ELF before kernel build | Shipped |
+| CI/QEMU scripts invoke shell scripts via `bash` (no execute-bit dependency) | Shipped |
+| Serial shows `Aether init started` from ring-3 `write` syscall | Shipped (CI optional job) |
+| `tests/qemu_boot.rs` asserts M6 + init strings | Shipped |
+| `run-qemu.ps1` / `run-qemu.sh` pass criteria include ring-3 init | Shipped |
 
 ---
 

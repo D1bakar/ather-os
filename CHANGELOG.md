@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **M6.1 QEMU-verified ring-3 boot:** `build-boot.sh` builds and embeds user init ELF before kernel compile; CI/QEMU scripts invoke shell helpers via `bash`; serial smoke test requires `Aether OS M6: userland started` and ring-3 `Aether init started`; `tests/qemu_boot.rs` asserts M6 init strings.
 - **M6 user space:** VFS trait layer (`kernel/src/vfs/`), ramfs mounted at boot (`kernel/src/fs/ramfs.rs`, `mount.rs`), per-process fd table wired to syscalls.
 - Per-process page tables with kernel higher-half sharing; ELF64 loader maps user segments at `0x400000`; first ring-3 entry via `IRETQ` (`kernel/src/arch/x86_64/user_entry.rs`).
 - Embedded init ELF from `build/user/init.elf`; `scripts/build-user.ps1` cross-compiles for `x86_64-unknown-none`.
@@ -48,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- CI QEMU job: `run-qemu.sh` no longer executes `build-boot.sh` directly (avoids permission denied when scripts lack `+x` in git).
+- Kernel bare-metal link: remove duplicate `-Tkernel/linker.ld` from `build.rs` (`.cargo/config.toml` already supplies it); discard `.comment` in linker script to avoid section overlap with embedded init ELF.
 - CI bare-metal build: include `alloc` in `-Z build-std` to match `build-boot` scripts (fixes duplicate `core` lang item in `aether-collections`).
 - CI / Build workflow: exclude `aether-boot` from host workspace builds (fixes duplicate `panic_impl` on Linux host).
 - Integration tests: split `support/rng` from sync-only tests so `-D warnings` clippy gates pass for `security_m5` and `sched_syscall`.
@@ -59,6 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- [docs/ROADMAP.md](docs/ROADMAP.md) — synced to M0–M6.1 shipped status (was stuck at M2).
+- QEMU smoke scripts (`run-qemu.ps1`, `run-qemu.sh`) wait for and require ring-3 init serial output.
 - Kernel boot sequence: `mm::init` → GDT/IDT/PIC/timer → `sched::init` → worker thread → `syscall::init` → mount ramfs + spawn init → `sched::start`.
 - QEMU smoke test expects optional `Aether OS M6: userland started` and ring-3 `Aether init started` when user ELF is embedded.
 - README milestone table marks M6 as shipped; badge updated to M6.
@@ -78,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Timer preemption uses the legacy PIT path; local APIC timer migration remains a follow-up.
 - Context switches preserve callee-saved registers only; full interrupt-frame save is documented in `switch.rs`.
-- **QEMU serial boot works** when `qemu-system-x86_64` and OVMF are installed (verified in CI; local run requires same).
+- **QEMU serial boot works** when `qemu-system-x86_64` and OVMF are installed; ring-3 init message verified in CI optional job and local smoke scripts.
 - **M2 host tests** cover GDT/IDT layout encoding; IRQ/timer delivery is validated via QEMU smoke when run.
 - **Real PC hardware boot is untested.** Memory-map copy in `BootInfo` remains a stub.
 - Paging and heap remain planned for M3+.
