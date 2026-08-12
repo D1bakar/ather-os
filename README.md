@@ -76,7 +76,7 @@ This is **not** a daily-driver OS, a consumer product, or a browser toy that pre
 | Surface | What it is | Verified runtime today |
 |---------|------------|------------------------|
 | **Aether OS** | Rust kernel + UEFI boot loader + user runtime | `qemu-system-x86_64` + OVMF → COM1 serial |
-| **Aether Web (Universal Platform)** | Static manifest + landing page + VM worker stub | Browser loads checksums; **no in-browser UEFI boot yet** |
+| **Aether Web (Universal Platform)** | Static manifest + in-browser UEFI boot via qemu.wasm | Browser boots real artifacts when OVMF is bundled (GitHub Pages CI) |
 
 Both surfaces consume artifacts from the same ESP build pipeline (`build/esp/`). The web path does not substitute different binaries for convenience.
 
@@ -379,7 +379,17 @@ make run            # smoke → build/qemu-serial.log
 
 **Live demo (GitHub Pages):** https://d1bakar.github.io/ather-os/
 
-Phase 1 serves the landing page, release manifest, and artifact checksum table. Browser boot remains **blocked** until Phase 2 (qemu.wasm).
+Click **BOOT AETHER** to run the same `BOOTX64.EFI` + `kernel.elf` inside browser QEMU ([qemu.wasm](https://github.com/ktock/qemu-wasm)). Serial output is live COM1 — no fake shell. **No GUI yet** (framebuffer is a future milestone).
+
+**Honest limitations:**
+
+| Topic | Status |
+|-------|--------|
+| Serial boot in browser | **Works** on desktop Chrome/Edge/Firefox (after ~300 MB WASM download) |
+| Mobile browsers | **Experimental** — memory and wasm64 limits may block boot |
+| Mouse / desktop GUI | **Not shipped** — serial only |
+| OVMF firmware | Bundled by CI from `ovmf` package (~8 MB); not committed to git |
+| Emulator binary | Lazy-loaded from [ktock/qemu-wasm-demo CDN](https://github.com/ktock/qemu-wasm-demo) (GPL-2.0) |
 
 **One command from repository root:**
 
@@ -404,14 +414,14 @@ npm install
 npm run serve
 ```
 
-Open http://localhost:8080 — manifest loads, SHA-256 table renders, VM worker stub reachable at `vm/worker.js`.
+Open http://localhost:8080 — click **BOOT AETHER** (requires OVMF installed locally for `browser_runtime.status=ready` in manifest).
 
 | Path | Status |
 |------|--------|
 | Local QEMU + OVMF | **Works** — M6.1 ring-3 init |
-| Web manifest + landing | **Works** — Phase 1 |
+| Web manifest + boot UI | **Works** |
 | GitHub Pages deploy | **Automated** — push to `main` |
-| In-browser UEFI boot | **Blocked** — Phase 2 / qemu.wasm |
+| In-browser UEFI boot | **Works** when OVMF bundled (CI deploy) |
 
 ---
 

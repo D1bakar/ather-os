@@ -1,8 +1,8 @@
 # ADR-0010: Browser VM Architecture for Aether Universal Platform
 
-**Status:** Accepted — Phase 1 foundation (manifest pipeline + landing page)  
+**Status:** Accepted — Phase 2 in-browser boot shipped (serial-only)  
 **Date:** 2026-08-12  
-**Milestone:** Universal Platform M1 (web delivery scaffold)
+**Milestone:** Universal Platform M1 (web delivery)
 
 ## Context
 
@@ -46,9 +46,9 @@ graph LR
         WEB[web/public/ landing]
     end
 
-    subgraph phase2["Phase 2 — in progress"]
-        QW[qemu.wasm worker]
-        SER[Serial canvas / log pane]
+    subgraph phase2["Phase 2 — shipped"]
+        QW[qemu.wasm + CDN]
+        SER[Serial console pane]
     end
 
     subgraph phase3["Phase 3 — optional"]
@@ -107,15 +107,15 @@ Integrate **qemu.wasm** (or upstream QEMU wasm64 TCG when stable):
 
 ### Negative
 
-- **No in-browser boot in Phase 1.** Users need local QEMU + OVMF today.
+- **No in-browser GUI in Phase 2.** Serial boot only until M8 framebuffer ships.
 - qemu.wasm bundle size is large (WASM + OVMF + disk image); lazy loading and compression required.
 - Browser JIT limits (Safari wasm64, memory caps) may require remote relay on mobile.
 - OVMF redistribution/licensing must be documented in `web/README.md`.
 
 ### Follow-ups
 
-- [ ] Integrate qemu.wasm worker with serial bridge ([#TBD — GitHub issue])
-- [ ] CI job: `build-web-artifacts.ps1` after boot build; upload `web/public/` artifact
+- [x] Integrate qemu.wasm with serial bridge (Phase 2 — https://d1bakar.github.io/ather-os/)
+- [x] CI job: `build-web-artifacts.ps1` after boot build; OVMF + Pages deploy
 - [ ] Mobile touch/keyboard UX ([web-threat-model](../security/web-threat-model.md))
 - [ ] Re-evaluate v86 only if UEFI support lands or Aether adds an approved alternate boot ADR
 

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **In-browser UEFI boot (Phase 2 / ADR-0010):** Live demo at https://d1bakar.github.io/ather-os/ — **BOOT AETHER** runs real `BOOTX64.EFI` + `kernel.elf` via qemu.wasm (CDN) with OVMF bundled by CI; COM1 serial bridged to the page; SHA-256 verified artifact download with progress bar; `coi-serviceworker` for COOP/COEP on GitHub Pages.
+- **Web boot modules:** `web/vm/qemu-emulator.js`, `artifact-loader.js`; redesigned mobile-friendly try page; reference serial log captured in CI (`artifacts/reference-serial.log`).
+
+### Added (prior)
+
 - **Web localhost + GitHub Pages:** `npm run serve` now serves `web/public/` (not repo root); VM worker copied to `public/vm/` during artifact build; `assetUrl()` helper resolves paths for local serve and `/ather-os/` Pages subpath; one-command launchers `web/serve.ps1` and `web/serve.sh`; `.github/workflows/pages.yml` deploys `web/public/` on push to `main`.
 - **Documentation redesign (long-form):** README rewritten from scratch — research-lab narrative, ASCII banner, milestone progress bar, boot timeline, multiple mermaid diagrams, collapsible `<details>` sections, honest shipped vs blocked matrix; live demo link https://d1bakar.github.io/ather-os/.
 - **`web/public/about.html`:** Updated voice — live demo link, Phase 1/2 honesty, refined hero ASCII.

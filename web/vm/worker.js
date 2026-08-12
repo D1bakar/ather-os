@@ -1,16 +1,9 @@
 /**
- * Aether VM Web Worker — Phase 1 stub.
- *
- * Future: load qemu.wasm, preload OVMF + ESP artifacts from manifest,
- * bridge -serial stdio to postMessage({ type: 'serial', line }).
- *
- * This stub validates manifest reachability and reports honest blocked status.
+ * Aether VM Web Worker — preloads and verifies artifacts (optional fast path).
+ * Live qemu.wasm boot runs on the main thread (pthread / COOP requirements).
  */
 
-import { createEmulatorStub } from "./emulator-stub.js";
-
-/** @type {import('./emulator-stub.js').EmulatorStub | null} */
-let emulator = null;
+import { loadBootArtifacts } from "./artifact-loader.js";
 
 function postStatus(state, detail) {
   self.postMessage({ type: "status", state, detail });
@@ -32,19 +25,18 @@ self.onmessage = async (ev) => {
     const manifest = await res.json();
 
     postSerial(`[manifest] aether-os ${manifest.version} (${manifest.git_commit?.slice(0, 8) ?? "?"})`);
-    for (const art of manifest.artifacts ?? []) {
-      postSerial(`[artifact] ${art.path} sha256=${(art.sha256 ?? "").slice(0, 16)}…`);
-    }
 
-    emulator = createEmulatorStub(manifest);
-    const result = await emulator.start();
+    const assetUrl = (path) => {
+      const base = msg.baseUrl ?? "";
+      return `${base}${path.replace(/^\//, "")}`;
+    };
 
-    postStatus(result.state, result.detail);
-    postSerial(`[emulator] ${result.detail}`);
+    await loadBootArtifacts(manifest, assetUrl, (detail) => {
+      if (detail.path) postSerial(`[verify] ${detail.path}`);
+    });
 
-    if (result.state === "blocked") {
-      postSerial("[hint] Use .\\scripts\\run-qemu.ps1 for real boot today.");
-    }
+    postStatus("ready", "artifacts verified — start boot on main thread");
+    postSerial("[worker] SHA-256 OK — click BOOT AETHER for live serial");
   } catch (err) {
     postStatus("error", String(err));
     postSerial(`[error] ${err}`);

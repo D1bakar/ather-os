@@ -35,6 +35,23 @@ function Get-Version {
     return "0.0.0"
 }
 
+function Find-OvmfFile {
+    param([string]$Name)
+    $candidates = @(
+        (Join-Path $Root "ovmf\$Name"),
+        "$env:ProgramFiles\qemu\share\$Name",
+        "$env:ProgramFiles\qemu\share\edk2\x64\$Name",
+        "$env:ProgramFiles\qemu\share\OVMF\$Name",
+        "/usr/share/OVMF/$Name",
+        "/usr/share/ovmf/x64/$Name",
+        "/usr/share/edk2/ovmf/$Name"
+    )
+    foreach ($path in $candidates) {
+        if (Test-Path $path) { return $path }
+    }
+    return $null
+}
+
 if (-not (Test-Path $EspDir)) {
     Write-Host "==> ESP not found; running build-boot.ps1"
     & (Join-Path $Root "scripts\build-boot.ps1")
@@ -45,6 +62,16 @@ foreach ($item in $Required) {
     $src = Join-Path $EspDir $item.Rel
     if (-not (Test-Path $src)) {
         Write-Error "Missing required artifact: $src - run scripts/build-boot.ps1"
+    }
+}
+
+# Build aether.img when img-builder is available and image is missing.
+$ImgSrc = Join-Path $Root "build\aether.img"
+if (-not (Test-Path $ImgSrc)) {
+    Write-Host "==> Building aether.img via aether-img-builder"
+    cargo run -q -p aether-img-builder -- build $EspDir $ImgSrc --size-mb 64 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  (img-builder skipped - cargo run failed or crate unavailable)"
     }
 }
 
@@ -72,7 +99,6 @@ foreach ($item in $Required) {
 }
 
 $optionalEntries = @()
-$ImgSrc = Join-Path $Root "build\aether.img"
 if (Test-Path $ImgSrc) {
     $imgDst = Join-Path $WebArtifacts "aether.img"
     Copy-Item -Force $ImgSrc $imgDst
@@ -84,6 +110,44 @@ if (Test-Path $ImgSrc) {
         note       = "FAT32 ESP disk image from aether-img-builder"
     }
     Write-Host "  copied aether.img"
+}
+
+# OVMF firmware for in-browser UEFI boot.
+$firmwareEntries = @{}
+$OvmfCode = Find-OvmfFile "OVMF_CODE.fd"
+if (-not $OvmfCode) { $OvmfCode = Find-OvmfFile "OVMF_CODE.4MB.fd" }
+$OvmfVars = Find-OvmfFile "OVMF_VARS.fd"
+if (-not $OvmfVars) { $OvmfVars = Find-OvmfFile "OVMF_VARS.4MB.fd" }
+
+$browserStatus = "not_available"
+$browserBlocker = "UEFI/OVMF required; v86 SeaBIOS cannot boot BOOTX64.EFI"
+
+if ($OvmfCode -and $OvmfVars) {
+    $FwDir = Join-Path $WebArtifacts "firmware"
+    New-Item -ItemType Directory -Force -Path $FwDir | Out-Null
+    $codeDst = Join-Path $FwDir "OVMF_CODE.fd"
+    $varsDst = Join-Path $FwDir "OVMF_VARS.fd"
+    Copy-Item -Force $OvmfCode $codeDst
+    Copy-Item -Force $OvmfVars $varsDst
+    $firmwareEntries = [ordered]@{
+        ovmf_code = [ordered]@{
+            path       = "artifacts/firmware/OVMF_CODE.fd"
+            role       = "uefi-firmware-code"
+            sha256     = (Get-Sha256Hex $codeDst)
+            size_bytes = (Get-Item $codeDst).Length
+        }
+        ovmf_vars = [ordered]@{
+            path       = "artifacts/firmware/OVMF_VARS.fd"
+            role       = "uefi-firmware-vars"
+            sha256     = (Get-Sha256Hex $varsDst)
+            size_bytes = (Get-Item $varsDst).Length
+        }
+    }
+    $browserStatus = "ready"
+    $browserBlocker = $null
+    Write-Host "  copied OVMF firmware (browser boot ready)"
+} else {
+    Write-Host "  OVMF not found - browser boot will remain blocked until firmware is installed"
 }
 
 $manifest = [ordered]@{
@@ -98,10 +162,17 @@ $manifest = [ordered]@{
         layout           = "esp-fat32"
         verified_runtime = @("qemu-system-x86_64+ovmf")
         browser_runtime  = [ordered]@{
-            status  = "not_available"
+            status  = $browserStatus
             target  = "qemu.wasm"
-            blocker = "UEFI/OVMF required; v86 SeaBIOS cannot boot BOOTX64.EFI"
+            blocker = $browserBlocker
             adr     = "docs/adr/ADR-0010-browser-vm-architecture.md"
+            qemu    = [ordered]@{
+                base_url = "https://ktock.github.io/qemu-wasm-demo/images/alpine-x86_64/"
+                js       = "out.js"
+                version  = "ktock-qemu-wasm-demo-alpine-x86_64"
+                license  = "GPL-2.0 (QEMU) - fetched from CDN, not bundled in repo"
+            }
+            firmware = $firmwareEntries
         }
     }
     artifacts          = $artifactEntries
@@ -117,7 +188,7 @@ $manifest = [ordered]@{
     }
 }
 
-$json = $manifest | ConvertTo-Json -Depth 6
+$json = $manifest | ConvertTo-Json -Depth 8
 $json | Set-Content -Encoding UTF8 $ManifestOut
 
 # Copy VM worker sources into public/ for static hosting (local + GitHub Pages).
@@ -127,7 +198,7 @@ if (Test-Path $VmDst) {
     Remove-Item -Recurse -Force $VmDst
 }
 New-Item -ItemType Directory -Force -Path $VmDst | Out-Null
-foreach ($vmFile in @("worker.js", "emulator-stub.js")) {
+foreach ($vmFile in @("worker.js", "artifact-loader.js", "qemu-emulator.js")) {
     $src = Join-Path $VmSrc $vmFile
     if (-not (Test-Path $src)) {
         Write-Error "Missing VM source: $src"
@@ -140,6 +211,7 @@ Write-Host ""
 Write-Host "Web artifacts ready:"
 Write-Host "  $WebArtifacts"
 Write-Host "  $ManifestOut"
+Write-Host "  browser_runtime.status = $browserStatus"
 if (Test-Path $Template) {
     Write-Host "  template: $Template"
 }

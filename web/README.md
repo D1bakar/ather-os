@@ -1,45 +1,51 @@
 # Aether Universal Platform (web)
 
-Static site and VM worker stubs for delivering **real** Aether OS boot artifacts to browsers.
+Static site and in-browser UEFI boot for **real** Aether OS artifacts.
 
 ## Current status
 
-**In-browser boot is not available yet.** Aether requires UEFI (`BOOTX64.EFI` + OVMF). The v86
-emulator only provides SeaBIOS and cannot boot our ESP layout. Phase 2 targets [qemu.wasm](https://github.com/ktock/qemu-wasm).
+**Live browser boot** is available when OVMF firmware is bundled (GitHub Pages CI). The demo runs the same `BOOTX64.EFI` + `kernel.elf` as local QEMU via [qemu.wasm](https://github.com/ktock/qemu-wasm) (fetched from CDN).
 
-This directory provides:
-
-- Honest landing page with manifest metadata and artifact checksums
-- Release manifest pipeline (`scripts/build-web-artifacts.ps1`)
-- Web Worker stub prepared for qemu.wasm serial bridging (no fake OS UI)
+| Capability | Status |
+|------------|--------|
+| SHA-256 manifest + artifact download | Shipped |
+| Live COM1 serial in browser | Shipped (desktop browsers) |
+| GOP / mouse / GUI | Not shipped |
+| Mobile | Experimental (memory limits) |
 
 See [ADR-0010](../docs/adr/ADR-0010-browser-vm-architecture.md).
+
+## Architecture
+
+```
+Browser page (main thread)
+  coi-serviceworker.js  → COOP/COEP for WASM pthreads
+  artifact-loader.js    → fetch + SHA-256 verify OVMF + ESP
+  qemu-emulator.js      → MEMFS mount, import qemu-system-x86_64.js (CDN)
+  xterm-pty             → bridge -serial stdio to #serial-pane
+```
+
+QEMU binary is **not** committed (size/GPL). Default CDN: `ktock.github.io/qemu-wasm-demo/images/alpine-x86_64/`.
+
+OVMF is copied from the host `ovmf` package during CI (`apt install ovmf`) into `artifacts/firmware/`.
 
 ## Prerequisites
 
 - Rust toolchain (same as root repo)
-- PowerShell (Windows) or adapt `build-web-artifacts.ps1` for bash
-- **Local boot today:** QEMU + OVMF — `../scripts/run-qemu.ps1`
+- **Local browser boot:** install OVMF (e.g. QEMU/OVMF for Windows, `ovmf` package on Linux)
+- **Local native boot:** QEMU + OVMF — `../scripts/run-qemu.ps1`
 
 ## Quick start
 
 From repository root:
 
 ```powershell
-# Build kernel + boot loader into build/esp/
 .\scripts\build-boot.ps1
-
-# Copy artifacts + generate web/public/manifest.json
-.\scripts\build-web-artifacts.ps1
-
-# Serve landing page (static files in public/)
-cd web
-npm run serve
+.\scripts\build-web-artifacts.ps1   # status=ready when OVMF found
+.\web\serve.ps1
 ```
 
-Or from repository root: `.\web\serve.ps1` (Windows) / `./web/serve.sh` (Unix).
-
-Open http://localhost:8080 — the page loads `manifest.json` and lists artifact SHA-256 hashes.
+Open http://localhost:8080 — click **BOOT AETHER**.
 
 **Live demo:** https://d1bakar.github.io/ather-os/
 
@@ -47,32 +53,35 @@ Open http://localhost:8080 — the page loads `manifest.json` and lists artifact
 
 ```
 web/
-├── package.json
-├── README.md
 ├── public/
-│   ├── index.html       Landing page
-│   ├── css/style.css
-│   ├── js/app.js        Manifest loader + VM status
-│   ├── manifest.json    Generated (do not hand-edit)
-│   ├── artifacts/       Generated ESP copy
-│   └── vm/              Copied from ../vm/ at build time
+│   ├── index.html          Boot demo UI
+│   ├── js/app.js           Manifest + boot button
+│   ├── js/boot.js          Boot orchestration
+│   ├── js/coi-serviceworker.js
+│   ├── manifest.json       Generated
+│   ├── artifacts/          ESP + OVMF (CI)
+│   └── vm/                 Copied from ../vm/ at build time
 └── vm/
-    ├── worker.js        Source — copied to public/vm/
-    └── emulator-stub.js Placeholder until qemu.wasm is integrated
+    ├── qemu-emulator.js
+    ├── artifact-loader.js
+    └── worker.js
 ```
 
 ## OVMF redistribution
 
-OVMF firmware is **not** bundled in this repo (license/size). For local QEMU, install via your
-OS package manager. For future browser boot, OVMF will be fetched or preloaded separately with
-license attribution documented here.
+OVMF firmware is **not** in git. CI installs the distribution package and copies files into `web/public/artifacts/firmware/` with checksums in `manifest.json`. License: BSD-2-Clause-Patent (TianoCore/OVMF).
 
-## Mobile
+## Bundle size notes
 
-Touch keyboard and viewport handling are specified in
-[docs/security/web-threat-model.md](../docs/security/web-threat-model.md). Not implemented in Phase 1.
+| Asset | Approx. size | Source |
+|-------|--------------|--------|
+| Aether ESP | ~500 KiB | Repo / CI build |
+| OVMF | ~8 MiB | CI `ovmf` package |
+| qemu.wasm | ~25–40 MiB | CDN lazy load |
+| aether.img (optional) | 64 MiB | Not required for browser boot (FAT ESP used) |
+
+GitHub Pages soft limit is 100 MiB per deployment; we stay under by CDN-loading the emulator.
 
 ## Security
 
-Artifact integrity uses SHA-256 in `manifest.json`. Do not boot images that fail manifest
-verification. Full web threat model: [docs/security/web-threat-model.md](../docs/security/web-threat-model.md).
+Artifact integrity uses SHA-256 in `manifest.json`. Full web threat model: [docs/security/web-threat-model.md](../docs/security/web-threat-model.md).

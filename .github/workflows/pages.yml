@@ -42,8 +42,19 @@ jobs:
         env:
           RUSTC_BOOTSTRAP: 1
 
+      - name: Install OVMF and QEMU
+        run: sudo apt-get update && sudo apt-get install -y ovmf qemu-system-x86
+
       - name: Build web manifest and copy artifacts
         run: pwsh -ExecutionPolicy Bypass -File scripts/build-web-artifacts.ps1
+
+      - name: Capture reference serial log (host QEMU smoke)
+        run: |
+          bash scripts/run-qemu.sh || true
+          if [ -f build/qemu-serial.log ]; then
+            cp build/qemu-serial.log web/public/artifacts/reference-serial.log
+            echo "Reference serial log captured ($(wc -l < build/qemu-serial.log) lines)"
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

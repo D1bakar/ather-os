@@ -1,10 +1,11 @@
 /**
- * Landing page — loads release manifest and probes VM worker stub.
- * Does NOT simulate an OS terminal; serial pane reflects worker messages only.
+ * Aether Universal Platform — boot demo UI.
  */
 
+import { startAetherBoot } from "./boot.js";
+
 /** Resolve asset URLs for local serve (/) and GitHub Pages (/ather-os/). */
-function assetUrl(relativePath) {
+export function assetUrl(relativePath) {
   const clean = relativePath.replace(/^\//, "");
   const meta = document.querySelector('meta[name="aether-base"]');
   if (meta?.content) {
@@ -18,12 +19,18 @@ function assetUrl(relativePath) {
   return clean;
 }
 
-const bootStatusEl = document.getElementById("boot-status");
+const phaseStatusEl = document.getElementById("phase-status");
+const progressBarEl = document.getElementById("progress-bar");
+const progressLabelEl = document.getElementById("progress-label");
+const bootBtnEl = document.getElementById("boot-btn");
+const retryBtnEl = document.getElementById("retry-btn");
+const serialPaneEl = document.getElementById("serial-pane");
 const manifestMetaEl = document.getElementById("manifest-meta");
 const artifactBodyEl = document.getElementById("artifact-body");
 const manifestErrorEl = document.getElementById("manifest-error");
-const serialPaneEl = document.getElementById("serial-pane");
-const vmProbeBtn = document.getElementById("vm-probe");
+const errorPanelEl = document.getElementById("error-panel");
+const errorDetailEl = document.getElementById("error-detail");
+const bootHintEl = document.getElementById("boot-hint");
 
 function formatBytes(n) {
   if (n < 1024) return `${n} B`;
@@ -31,28 +38,52 @@ function formatBytes(n) {
   return `${(n / (1024 * 1024)).toFixed(2)} MiB`;
 }
 
+function setPhase(state, detail) {
+  phaseStatusEl.textContent = detail ? `${state} — ${detail}` : state;
+  phaseStatusEl.dataset.state = state.toLowerCase().replace(/\s+/g, "-");
+}
+
+function setProgress(loaded, total) {
+  if (!total) {
+    progressBarEl.style.width = "0%";
+    progressLabelEl.textContent = "Downloading…";
+    return;
+  }
+  const pct = Math.min(100, Math.round((loaded / total) * 100));
+  progressBarEl.style.width = `${pct}%`;
+  progressLabelEl.textContent = `${formatBytes(loaded)} / ${formatBytes(total)} (${pct}%)`;
+}
+
+function appendSerial(line) {
+  if (!line) return;
+  if (serialPaneEl.textContent.startsWith("Press BOOT")) {
+    serialPaneEl.textContent = "";
+  }
+  serialPaneEl.textContent += `${line}\n`;
+  serialPaneEl.scrollTop = serialPaneEl.scrollHeight;
+}
+
+function showError(err, phase) {
+  errorPanelEl.hidden = false;
+  errorDetailEl.textContent = `[${phase}] ${err.message}`;
+  bootBtnEl.disabled = false;
+}
+
+function hideError() {
+  errorPanelEl.hidden = true;
+  errorDetailEl.textContent = "";
+}
+
 function renderManifest(manifest) {
   const browser = manifest.boot?.browser_runtime ?? {};
   const status = browser.status ?? "unknown";
 
-  if (status === "not_available") {
-    bootStatusEl.textContent =
-      "Blocked — UEFI/OVMF required. Local QEMU works; in-browser boot targets qemu.wasm (Phase 2).";
-    bootStatusEl.className = "status-blocked";
-  } else if (status === "ready") {
-    bootStatusEl.textContent = "Ready — emulator can boot verified artifacts.";
-    bootStatusEl.className = "status-ready";
-  } else {
-    bootStatusEl.textContent = `Status: ${status}`;
-    bootStatusEl.className = "status-blocked";
-  }
-
   const meta = [
     ["Version", manifest.version],
     ["Git commit", (manifest.git_commit ?? "").slice(0, 12)],
-    ["Generated", manifest.generated_at],
-    ["Firmware", manifest.boot?.firmware],
-    ["Browser target", browser.target ?? "—"],
+    ["Browser boot", status],
+    ["Emulator", browser.qemu?.version ?? browser.target ?? "—"],
+    ["Firmware", manifest.boot?.firmware ?? "uefi"],
   ];
 
   manifestMetaEl.replaceChildren(
@@ -61,16 +92,31 @@ function renderManifest(manifest) {
       dt.textContent = label;
       const dd = document.createElement("dd");
       dd.textContent = value ?? "—";
+      if (label === "Browser boot" && status === "ready") {
+        dd.className = "status-ready";
+      } else if (label === "Browser boot" && status !== "ready") {
+        dd.className = "status-blocked";
+      }
       return [dt, dd];
     })
   );
 
+  const allArts = [
+    ...(manifest.artifacts ?? []),
+    ...(manifest.optional_artifacts ?? []),
+  ];
+  if (manifest.boot?.browser_runtime?.firmware) {
+    for (const entry of Object.values(manifest.boot.browser_runtime.firmware)) {
+      if (entry?.path) allArts.push(entry);
+    }
+  }
+
   artifactBodyEl.replaceChildren();
-  for (const art of manifest.artifacts ?? []) {
+  for (const art of allArts) {
     const tr = document.createElement("tr");
     for (const [label, text] of [
       ["Path", art.path],
-      ["Role", art.role],
+      ["Role", art.role ?? "—"],
       ["Size", formatBytes(art.size_bytes ?? 0)],
       ["SHA-256", art.sha256 ?? ""],
     ]) {
@@ -83,57 +129,54 @@ function renderManifest(manifest) {
     artifactBodyEl.appendChild(tr);
   }
 
-  vmProbeBtn.disabled = status === "ready" ? false : true;
-  vmProbeBtn.title =
-    status === "ready"
-      ? "Start qemu.wasm worker"
-      : "Browser boot blocked until Phase 2 (ADR-0010)";
+  if (status !== "ready") {
+    bootBtnEl.disabled = true;
+    bootHintEl.textContent =
+      browser.blocker ??
+      "Browser boot unavailable — OVMF firmware not bundled in this deployment.";
+  } else if (!window.crossOriginIsolated) {
+    bootBtnEl.disabled = false;
+    bootHintEl.textContent =
+      "COOP/COEP initializing… If boot fails, reload once after the service worker registers.";
+  }
 }
 
 async function loadManifest() {
   try {
     const res = await fetch(assetUrl("manifest.json"), { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const manifest = await res.json();
-    renderManifest(manifest);
+    renderManifest(await res.json());
     manifestErrorEl.hidden = true;
   } catch (err) {
-    bootStatusEl.textContent = "Manifest not found — run scripts/build-web-artifacts.ps1";
-    bootStatusEl.className = "status-blocked";
+    setPhase("error", "manifest not found");
     manifestErrorEl.textContent = String(err);
     manifestErrorEl.hidden = false;
+    bootBtnEl.disabled = true;
   }
 }
 
-function appendSerial(line) {
-  serialPaneEl.textContent += `\n${line}`;
-  serialPaneEl.scrollTop = serialPaneEl.scrollHeight;
+async function handleBoot() {
+  hideError();
+  bootBtnEl.disabled = true;
+  setPhase("Initializing", "preparing emulator");
+  setProgress(0, 0);
+
+  await startAetherBoot(assetUrl, {
+    onSerial: appendSerial,
+    onStatus: setPhase,
+    onProgress: setProgress,
+    onError: showError,
+  });
+
+  bootBtnEl.disabled = false;
 }
 
-function probeWorker() {
-  if (typeof Worker === "undefined") {
-    appendSerial("[vm] Web Workers unavailable");
-    return;
-  }
-
-  appendSerial("[vm] spawning worker…");
-  const worker = new Worker(assetUrl("vm/worker.js"), { type: "module" });
-
-  worker.onmessage = (ev) => {
-    const msg = ev.data;
-    if (msg?.type === "serial") {
-      appendSerial(msg.line);
-    } else if (msg?.type === "status") {
-      appendSerial(`[vm] ${msg.state}: ${msg.detail ?? ""}`);
-    }
-  };
-
-  worker.onerror = (err) => {
-    appendSerial(`[vm] worker error: ${err.message}`);
-  };
-
-  worker.postMessage({ type: "init", manifestUrl: assetUrl("manifest.json") });
-}
-
-vmProbeBtn.addEventListener("click", probeWorker);
+bootBtnEl.addEventListener("click", handleBoot);
+retryBtnEl.addEventListener("click", handleBoot);
 loadManifest();
+
+if (window.crossOriginIsolated) {
+  appendSerial("[host] crossOriginIsolated=true — WASM pthreads available");
+} else {
+  appendSerial("[host] waiting for COOP/COEP (service worker) — reload if boot fails");
+}

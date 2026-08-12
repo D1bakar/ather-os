@@ -3,72 +3,92 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Aether OS Universal Platform — real UEFI artifacts, honest browser boot status">
-  <!-- Empty = auto-detect; set to /ather-os/ when overriding GitHub Pages base -->
+  <meta name="description" content="Boot real Aether OS in your browser — UEFI artifacts, live COM1 serial">
   <meta name="aether-base" content="">
-  <title>Aether OS — Universal Platform</title>
+  <title>Aether OS — Boot Demo</title>
   <link rel="stylesheet" href="css/style.css">
+  <script src="js/coi-serviceworker.js"></script>
 </head>
 <body>
-  <nav class="site-nav" aria-label="Site" style="margin-bottom:1.5rem;font-size:0.9rem">
-    <a href="index.html" aria-current="page">Platform</a>
+  <nav class="site-nav" aria-label="Site">
+    <a href="index.html" aria-current="page">Boot demo</a>
     <a href="about.html">About</a>
     <a href="https://github.com/D1bakar/ather-os">GitHub</a>
-    <a href="https://d1bakar.github.io/ather-os/">Live demo</a>
   </nav>
 
-  <header>
+  <header class="hero">
     <h1>Aether OS</h1>
-    <p class="tagline">Universal Platform — real artifacts, no simulated desktop</p>
+    <p class="tagline">Real UEFI boot in your browser — no fake terminal</p>
   </header>
 
   <main>
-    <section id="status" class="card" aria-live="polite">
-      <h2>Browser boot status</h2>
-      <p id="boot-status" class="status-blocked">Loading manifest…</p>
-      <p class="note">
-        Aether boots via <strong>UEFI</strong> (<code>BOOTX64.EFI</code> + <code>kernel.elf</code>).
-        In-browser execution requires OVMF firmware; v86/SeaBIOS cannot load our boot chain.
+    <section id="boot-section" class="card boot-card">
+      <div class="boot-header">
+        <h2>Live boot</h2>
+        <p id="phase-status" class="phase-status" aria-live="polite">Idle</p>
+      </div>
+
+      <div class="progress-wrap" aria-hidden="true">
+        <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+      </div>
+      <p id="progress-label" class="progress-label">Ready to download artifacts</p>
+
+      <button type="button" id="boot-btn" class="boot-btn">
+        BOOT AETHER
+      </button>
+
+      <p id="boot-hint" class="note">
+        Boots the same <code>BOOTX64.EFI</code> + <code>kernel.elf</code> as local QEMU.
+        Requires a desktop browser with WebAssembly (~300&nbsp;MB download on first boot).
+        Serial output only — no GUI yet.
       </p>
+
+      <div id="error-panel" class="error-panel" hidden>
+        <strong>Boot failed</strong>
+        <p id="error-detail"></p>
+        <button type="button" id="retry-btn" class="secondary-btn">Retry</button>
+      </div>
     </section>
 
     <section class="card">
-      <h2>Run locally (verified today)</h2>
-      <pre><code># From repository root
-.\scripts\build-boot.ps1
-.\scripts\run-qemu.ps1
-# Serial log: build/qemu-serial.log</code></pre>
-      <p>Expected output includes <code>Aether init started</code> (M6 ring-3 init).</p>
+      <h2>Serial console</h2>
+      <p class="note">Live COM1 output from the emulated machine (real kernel, not scripted).</p>
+      <pre id="serial-pane" class="serial" aria-label="Emulator serial output">Press BOOT AETHER to start.
+
+Expected lines after successful boot:
+  Aether OS kernel started
+  Aether OS M6: userland started
+  Aether init started</pre>
     </section>
 
     <section class="card">
       <h2>Release manifest</h2>
       <dl id="manifest-meta"></dl>
-      <table id="artifact-table" aria-label="Boot artifacts">
-        <thead>
-          <tr><th>Path</th><th>Role</th><th>Size</th><th>SHA-256</th></tr>
-        </thead>
-        <tbody id="artifact-body"></tbody>
-      </table>
+      <details>
+        <summary>Artifact checksums</summary>
+        <table id="artifact-table" aria-label="Boot artifacts">
+          <thead>
+            <tr><th>Path</th><th>Role</th><th>Size</th><th>SHA-256</th></tr>
+          </thead>
+          <tbody id="artifact-body"></tbody>
+        </table>
+      </details>
       <p id="manifest-error" class="error" hidden></p>
     </section>
 
     <section class="card">
-      <h2>Serial output (VM stub)</h2>
-      <p class="note">
-        When qemu.wasm is integrated, this pane will show <em>real</em> COM1 output from the
-        emulator — not a fake shell. Phase 1 shows worker status only.
-      </p>
-      <pre id="serial-pane" class="serial" aria-label="Emulator serial output">[vm] worker not started — browser boot blocked (see ADR-0010)</pre>
-      <button type="button" id="vm-probe" disabled>Probe VM worker</button>
+      <h2>Run locally (QEMU)</h2>
+      <pre><code>.\scripts\build-boot.ps1
+.\scripts\run-qemu.ps1
+# Serial log: build/qemu-serial.log</code></pre>
     </section>
   </main>
 
   <footer>
     <p>
       <a href="about.html">About</a>
-      · Architecture: <a href="https://github.com/D1bakar/ather-os/blob/main/docs/adr/ADR-0010-browser-vm-architecture.md">ADR-0010</a>
-      · Threat model: <a href="https://github.com/D1bakar/ather-os/blob/main/docs/security/web-threat-model.md">web-threat-model.md</a>
+      · <a href="https://github.com/D1bakar/ather-os/blob/main/docs/adr/ADR-0010-browser-vm-architecture.md">ADR-0010</a>
+      · Emulator: <a href="https://github.com/ktock/qemu-wasm">qemu.wasm</a>
     </p>
   </footer>
 
