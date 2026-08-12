@@ -181,6 +181,11 @@ fn read_kernel_file() -> Result<Vec<u8>, BootError> {
     Ok(buf)
 }
 
+/// Returns true when `[start, end)` lies entirely inside a prior loader allocation.
+fn range_already_allocated(ranges: &[(u64, u64)], start: u64, end: u64) -> bool {
+    ranges.iter().any(|&(alloc_start, alloc_end)| alloc_start <= start && alloc_end >= end)
+}
+
 fn load_elf(data: &[u8]) -> Result<u64, BootError> {
     if data.len() < 64 || data[0..4] != [0x7F, b'E', b'L', b'F'] {
         return Err(BootError::InvalidElf);
@@ -197,6 +202,8 @@ fn load_elf(data: &[u8]) -> Result<u64, BootError> {
     if e_phentsize < 56 {
         return Err(BootError::InvalidElf);
     }
+
+    let mut allocated_ranges: Vec<(u64, u64)> = Vec::new();
 
     for i in 0..e_phnum {
         let off = e_phoff + u64::from(i) * u64::from(e_phentsize);
@@ -218,17 +225,35 @@ fn load_elf(data: &[u8]) -> Result<u64, BootError> {
             continue;
         }
 
-        let page_count = p_memsz.div_ceil(PAGE_SIZE) as usize;
-        let dest_ptr = boot::allocate_pages(
-            AllocateType::Address(p_vaddr),
-            MemoryType::LOADER_DATA,
-            page_count,
-        )
-        .map_err(|_| BootError::ElfSegmentAllocFailed)?;
-        let dest = dest_ptr.as_ptr() as u64;
+        // UEFI AllocatePages requires a page-aligned physical address. Linker
+        // scripts may place small .data/.bss PT_LOAD segments at unaligned
+        // offsets within a page already covered by an earlier segment.
+        let page_base = p_vaddr & !(PAGE_SIZE - 1);
+        let in_page_offset = (p_vaddr - page_base) as usize;
+        let span_bytes = in_page_offset as u64 + p_memsz;
+        let page_count = span_bytes.div_ceil(PAGE_SIZE) as usize;
+        let region_end = page_base + page_count as u64 * PAGE_SIZE;
 
-        let dest_slice = unsafe { slice::from_raw_parts_mut(dest as *mut u8, p_memsz as usize) };
-        dest_slice.fill(0);
+        if !range_already_allocated(&allocated_ranges, page_base, region_end) {
+            boot::allocate_pages(
+                AllocateType::Address(page_base),
+                MemoryType::LOADER_DATA,
+                page_count,
+            )
+            .map_err(|_| {
+                error!(
+                    "PT_LOAD segment {} alloc failed: vaddr={:#x} pages={} (page_base={:#x})",
+                    i, p_vaddr, page_count, page_base
+                );
+                BootError::ElfSegmentAllocFailed
+            })?;
+            allocated_ranges.push((page_base, region_end));
+        }
+
+        let dest_slice =
+            unsafe { slice::from_raw_parts_mut(page_base as *mut u8, span_bytes as usize) };
+        dest_slice[in_page_offset..].fill(0);
+        let segment_slice = &mut dest_slice[in_page_offset..in_page_offset + p_memsz as usize];
 
         if p_filesz > 0 {
             let src_start = p_offset as usize;
@@ -236,7 +261,7 @@ fn load_elf(data: &[u8]) -> Result<u64, BootError> {
             if src_end > data.len() {
                 return Err(BootError::ElfSegmentOutOfBounds);
             }
-            dest_slice[..p_filesz as usize].copy_from_slice(&data[src_start..src_end]);
+            segment_slice[..p_filesz as usize].copy_from_slice(&data[src_start..src_end]);
         }
     }
 
