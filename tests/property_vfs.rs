@@ -2,9 +2,12 @@
 
 mod support;
 
+#[path = "support/rng.rs"]
+mod rng;
+
 use aether_kernel::vfs::path::validate_path;
 use aether_kernel::vfs::MAX_PATH_LEN;
-use support::for_each_case;
+use rng::for_each_case;
 
 const COMPONENTS: &[&str] = &["init", "etc", "dev", "tmp", "a", "bin", "config"];
 

@@ -2,10 +2,13 @@
 
 mod support;
 
+#[path = "support/rng.rs"]
+mod rng;
+
 use aether_kernel::fs::RamFs;
 use aether_kernel::vfs::{OpenFlags, Vfs};
 use aether_types::ErrorCode;
-use support::for_each_case;
+use rng::for_each_case;
 
 const PATHS: &[&str] = &["/fuzz", "/a", "/etc/cfg", "/dev/null", "/tmp/x"];
 

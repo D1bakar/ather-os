@@ -2,12 +2,15 @@
 
 mod support;
 
+#[path = "support/rng.rs"]
+mod rng;
+
 use aether_kernel::arch::x86_64::gdt::layout::{
     kernel_code_descriptor, kernel_data_descriptor, table_limit_bytes, tss_descriptor,
     GDT_ENTRY_COUNT, GDT_ENTRY_SIZE,
 };
 use aether_kernel::arch::x86_64::gdt::tss_size;
-use support::for_each_case;
+use rng::for_each_case;
 
 #[test]
 fn table_limit_is_size_minus_one() {

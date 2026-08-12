@@ -2,10 +2,13 @@
 
 mod support;
 
+#[path = "support/rng.rs"]
+mod rng;
+
 use aether_abi::{syscall_count, SyscallArgs, SyscallNumber};
 use aether_kernel::syscall::dispatch;
 use aether_types::ErrorCode;
-use support::for_each_case;
+use rng::for_each_case;
 
 fn assert_dispatch_result_is_stable(result: i64) {
     if result < 0 {

@@ -2,8 +2,11 @@
 
 mod support;
 
+#[path = "support/rng.rs"]
+mod rng;
+
 use aether_abi::{descriptor_for, lookup_syscall, syscall_count, SyscallArgs, SyscallNumber};
-use support::for_each_case;
+use rng::for_each_case;
 
 #[test]
 fn syscall_roundtrip_for_valid_range() {
