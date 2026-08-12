@@ -9,8 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Documentation redesign:** README rewritten for Universal Platform identity — research-lab tone, honest shipped vs planned boundaries (M0–M6.1, web Phase 1, M7+ / Phase 2), architecture diagram with parallel web path, Try it section for QEMU and web manifest pipeline.
-- **`web/public/about.html`:** About page matching README voice — mission, Aether OS + Aether Web products, team philosophy, security, roadmap pointers to ADR-0010 and GitHub.
+- **Web localhost + GitHub Pages:** `npm run serve` now serves `web/public/` (not repo root); VM worker copied to `public/vm/` during artifact build; `assetUrl()` helper resolves paths for local serve and `/ather-os/` Pages subpath; one-command launchers `web/serve.ps1` and `web/serve.sh`; `.github/workflows/pages.yml` deploys `web/public/` on push to `main`.
+- **Documentation redesign (long-form):** README rewritten from scratch — research-lab narrative, ASCII banner, milestone progress bar, boot timeline, multiple mermaid diagrams, collapsible `<details>` sections, honest shipped vs blocked matrix; live demo link https://d1bakar.github.io/ather-os/.
+- **`web/public/about.html`:** Updated voice — live demo link, Phase 1/2 honesty, refined hero ASCII.
+
+### Fixed
+
+- **Web serve broken on Windows:** `serve` package pointed at `web/` instead of `web/public/`; worker used absolute `/vm/worker.js` (404 locally and on GitHub Pages subpath).
 - **M6.1 QEMU-verified ring-3 boot:** `build-boot.sh` builds and embeds user init ELF before kernel compile; CI/QEMU scripts invoke shell helpers via `bash`; serial smoke test requires `Aether OS M6: userland started` and ring-3 `Aether init started`; `tests/qemu_boot.rs` asserts M6 init strings.
 - **M6 user space:** VFS trait layer (`kernel/src/vfs/`), ramfs mounted at boot (`kernel/src/fs/ramfs.rs`, `mount.rs`), per-process fd table wired to syscalls.
 - Per-process page tables with kernel higher-half sharing; ELF64 loader maps user segments at `0x400000`; first ring-3 entry via `IRETQ` (`kernel/src/arch/x86_64/user_entry.rs`).
