@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Aether OS Universal Platform — real UEFI artifacts, honest browser boot status">
+  <title>Aether OS — Universal Platform</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <h1>Aether OS</h1>
+    <p class="tagline">Universal Platform — real artifacts, no simulated desktop</p>
+  </header>
+
+  <main>
+    <section id="status" class="card" aria-live="polite">
+      <h2>Browser boot status</h2>
+      <p id="boot-status" class="status-blocked">Loading manifest…</p>
+      <p class="note">
+        Aether boots via <strong>UEFI</strong> (<code>BOOTX64.EFI</code> + <code>kernel.elf</code>).
+        In-browser execution requires OVMF firmware; v86/SeaBIOS cannot load our boot chain.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Run locally (verified today)</h2>
+      <pre><code># From repository root
+.\scripts\build-boot.ps1
+.\scripts\run-qemu.ps1
+# Serial log: build/qemu-serial.log</code></pre>
+      <p>Expected output includes <code>Aether init started</code> (M6 ring-3 init).</p>
+    </section>
+
+    <section class="card">
+      <h2>Release manifest</h2>
+      <dl id="manifest-meta"></dl>
+      <table id="artifact-table" aria-label="Boot artifacts">
+        <thead>
+          <tr><th>Path</th><th>Role</th><th>Size</th><th>SHA-256</th></tr>
+        </thead>
+        <tbody id="artifact-body"></tbody>
+      </table>
+      <p id="manifest-error" class="error" hidden></p>
+    </section>
+
+    <section class="card">
+      <h2>Serial output (VM stub)</h2>
+      <p class="note">
+        When qemu.wasm is integrated, this pane will show <em>real</em> COM1 output from the
+        emulator — not a fake shell. Phase 1 shows worker status only.
+      </p>
+      <pre id="serial-pane" class="serial" aria-label="Emulator serial output">[vm] worker not started — browser boot blocked (see ADR-0010)</pre>
+      <button type="button" id="vm-probe" disabled>Probe VM worker</button>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Architecture: <a href="https://github.com/D1bakar/ather-os/blob/main/docs/adr/ADR-0010-browser-vm-architecture.md">ADR-0010</a>
+      · Threat model: <a href="https://github.com/D1bakar/ather-os/blob/main/docs/security/web-threat-model.md">web-threat-model.md</a>
+    </p>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
