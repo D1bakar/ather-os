@@ -192,6 +192,22 @@ fn identity_ptr<T>(phys: u64) -> *mut T {
     phys as *mut T
 }
 
+/// Returns a mutable pointer to a physical page via the identity map.
+///
+/// # Safety
+///
+/// `phys` must refer to an identity-mapped frame for the duration of the access.
+pub(crate) unsafe fn identity_mut<T>(phys: u64) -> *mut T {
+    identity_ptr(phys)
+}
+
+/// Returns a reference to the bootstrap kernel PML4 (physical address equals virtual).
+#[cfg(not(feature = "host-stub"))]
+pub(crate) fn kernel_pml4() -> &'static PageTable {
+    // SAFETY: Static PML4 is initialized before user address spaces are created.
+    unsafe { &*core::ptr::addr_of!(PML4) }
+}
+
 extern "C" {
     static __kernel_text_start: u8;
     static __kernel_text_end: u8;

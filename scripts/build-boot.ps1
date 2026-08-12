@@ -19,6 +19,10 @@ Write-Host "==> Adding Rust targets"
 rustup target add x86_64-unknown-uefi x86_64-unknown-none
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host "==> Building user-space binaries (init.elf)"
+& (Join-Path $Root "scripts\build-user.ps1")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "==> Building UEFI boot loader"
 cargo build -p aether-boot --target x86_64-unknown-uefi --release
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -1,7 +1,5 @@
 //! Syscall dispatch fuzz stub — hammers random numbers and args without panicking.
 
-mod support;
-
 #[path = "support/rng.rs"]
 mod rng;
 

@@ -1,7 +1,5 @@
 //! RamFS fuzz stub — random valid-path operation sequences must not panic.
 
-mod support;
-
 #[path = "support/rng.rs"]
 mod rng;
 

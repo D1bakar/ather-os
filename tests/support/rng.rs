@@ -27,11 +27,13 @@ impl TestRng {
     }
 
     /// Returns a value in `0..bound` (bound must be > 0).
+    #[allow(dead_code)]
     pub fn next_bounded(&mut self, bound: u64) -> u64 {
         self.next_u64() % bound
     }
 
     /// Fills `buf` with pseudo-random bytes.
+    #[allow(dead_code)]
     pub fn fill_bytes(&mut self, buf: &mut [u8]) {
         for chunk in buf.chunks_mut(8) {
             let value = self.next_u64();

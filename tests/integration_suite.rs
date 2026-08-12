@@ -44,6 +44,27 @@ fn process_ramfs_open_read_close_pipeline() {
 }
 
 #[test]
+fn syscall_open_path_integrates_with_ramfs() {
+    use aether_kernel::fs::mount;
+    use aether_kernel::process::{Process, ProcessId};
+    use aether_kernel::sched::TaskId;
+    use aether_kernel::syscall::open_path;
+    use aether_kernel::vfs::{OpenFlags, Vfs};
+    use aether_types::PhysicalAddress;
+
+    mount::init();
+    mount::with_root(|fs| fs.seed_file("/etc/os-release", b"aether").expect("seed"));
+    let mut proc = Process::new(ProcessId::new(99), PhysicalAddress::new(0), TaskId::new(1));
+    proc.grant_default_io_caps();
+    let fd = open_path(&mut proc, "/etc/os-release", OpenFlags::READ).expect("open");
+    let mut buf = [0u8; 6];
+    let entry = proc.fd_table.get(fd).expect("fd");
+    let count = mount::with_root(|fs| fs.read(entry.vfs_handle, &mut buf, 0)).expect("read");
+    assert_eq!(count, 6);
+    assert_eq!(&buf, b"aether");
+}
+
+#[test]
 fn dispatch_unknown_and_yield_endpoints() {
     let unknown = dispatch(999, SyscallArgs::default());
     assert_eq!(unknown, ErrorCode::NotSupported.as_i32() as i64);

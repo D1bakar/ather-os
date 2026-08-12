@@ -9,6 +9,8 @@ use std::time::{Duration, Instant};
 const EXPECTED_BOOT: &str = "Aether OS kernel started";
 const EXPECTED_M2: &str = "Aether OS M2: GDT/IDT/interrupts initialized";
 const EXPECTED_M4: &str = "Aether OS M4: scheduler initialized";
+const EXPECTED_M6: &str = "Aether OS M6: userland started";
+const EXPECTED_INIT: &str = "Aether init started";
 const EXPECTED_TIMER: &str = "[timer] tick";
 const EXPECTED_WORKER: &str = "[worker] kernel thread tick";
 const TIMEOUT: Duration = Duration::from_secs(45);
@@ -70,6 +72,12 @@ fn qemu_boot_prints_kernel_message() {
         log.contains(EXPECTED_M4),
         "serial log missing M4 scheduler message: {EXPECTED_M4}\n---\n{log}"
     );
+    if log.contains(EXPECTED_M6) {
+        eprintln!("QEMU smoke: M6 userland banner observed");
+    }
+    if log.contains(EXPECTED_INIT) {
+        eprintln!("QEMU smoke: ring-3 init message observed");
+    }
     // Timer ticks and worker thread output appear after STI; optional if QEMU run is short.
     if log.contains(EXPECTED_TIMER) {
         eprintln!("QEMU smoke: timer tick output observed");

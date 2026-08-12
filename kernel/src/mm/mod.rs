@@ -16,6 +16,9 @@ pub mod heap;
 #[cfg(not(feature = "host-stub"))]
 pub mod paging;
 
+#[cfg(not(feature = "host-stub"))]
+pub mod user;
+
 /// Direct-map offset: `virt = phys + KERNEL_DIRECT_MAP_BASE`.
 pub const KERNEL_DIRECT_MAP_BASE: u64 = crate::KERNEL_VIRT_BASE;
 

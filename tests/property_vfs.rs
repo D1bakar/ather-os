@@ -1,7 +1,5 @@
 //! Property tests for VFS path validation rules.
 
-mod support;
-
 #[path = "support/rng.rs"]
 mod rng;
 

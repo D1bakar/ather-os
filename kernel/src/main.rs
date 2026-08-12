@@ -37,6 +37,7 @@ pub extern "sysv64" fn _start(boot_info: *const BootInfo) -> ! {
     sched::init();
     sched::spawn_worker_thread();
     syscall::init(sched::kernel_stack_top());
+    aether_kernel::user::start_userland();
 
     serial::write_str("Aether OS M2: GDT/IDT/interrupts initialized\r\n");
     serial::write_str("Aether OS M5: syscalls initialized\r\n");

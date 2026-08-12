@@ -9,7 +9,9 @@
 
 mod syscall;
 
-pub use syscall::{exit, getpid, mmap, munmap, write, MmapProt, StdFd, MAP_FAILED};
+pub use syscall::{
+    close, exit, getpid, mmap, munmap, open, read, write, yield_cpu, MmapProt, StdFd, MAP_FAILED,
+};
 
 /// Writes a string to standard output (host) or fd 1 (bare metal).
 pub fn print(s: &str) {

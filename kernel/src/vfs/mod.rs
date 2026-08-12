@@ -29,6 +29,12 @@ impl FileDescriptor {
 pub struct OpenFlags(u32);
 
 impl OpenFlags {
+    /// Builds flags from a raw bitfield (syscall ABI).
+    #[must_use]
+    pub const fn from_bits(bits: u32) -> Self {
+        Self(bits)
+    }
+
     /// Open for read.
     pub const READ: Self = Self(1 << 0);
     /// Open for write.

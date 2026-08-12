@@ -31,6 +31,9 @@ pub mod security;
 pub mod syscall;
 pub mod vfs;
 
+#[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
+pub mod user;
+
 #[cfg(not(feature = "host-stub"))]
 pub mod serial;
 

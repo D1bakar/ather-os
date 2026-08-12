@@ -1,13 +1,11 @@
-//! Process control block types (integration stubs).
-//!
-//! M4 adds scheduler integration fields; M7 wires the per-process fd table so
-//! syscall dispatch can map process fds to VFS handles on mounted filesystems.
+//! Process control block types and registry (M4/M6).
 
 use aether_types::{AetherError, AetherResult, ErrorCode, PhysicalAddress};
 
 use crate::cap::CapabilityTable;
 use crate::sched::TaskId;
 use crate::vfs::{FileDescriptor, OpenFlags, Vfs};
+use aether_types::{CapabilityRights, ObjectKind};
 
 /// Process identifier (stable across threads in one process).
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
@@ -22,8 +20,14 @@ impl ProcessId {
     }
 }
 
+/// Maximum live processes tracked by the bring-up registry.
+pub const MAX_PROCESSES: usize = 8;
+
 /// Maximum open file descriptors per process.
 pub const MAX_FDS_PER_PROCESS: usize = 32;
+
+/// Root mount id for the ramfs instance mounted at `/`.
+pub const ROOT_MOUNT_ID: u32 = 0;
 
 /// Maps a process-local fd slot to a VFS backend handle.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -128,11 +132,83 @@ impl Process {
         self.fd_table.allocate(FdEntry { mount_id, vfs_handle, flags })
     }
 
+    /// Reads from an open process fd via the root ramfs mount.
+    pub fn read(
+        &self,
+        vfs: &mut impl Vfs,
+        fd: FileDescriptor,
+        buf: &mut [u8],
+    ) -> AetherResult<usize> {
+        let entry = self.fd_table.get(fd).ok_or(AetherError::new(ErrorCode::InvalidArgument))?;
+        if !entry.flags.contains(OpenFlags::READ) {
+            return Err(AetherError::new(ErrorCode::PermissionDenied));
+        }
+        vfs.read(entry.vfs_handle, buf, 0)
+    }
+
+    /// Grants default I/O capabilities for the first user process.
+    pub fn grant_default_io_caps(&mut self) {
+        let _ = self.capabilities.grant(ObjectKind::File, CapabilityRights::READ);
+        let _ = self.capabilities.grant(ObjectKind::File, CapabilityRights::WRITE);
+    }
+
     /// Closes a process fd and the underlying VFS handle.
     pub fn close<V: Vfs>(&mut self, vfs: &mut V, fd: FileDescriptor) -> AetherResult<()> {
         let entry = self.fd_table.close(fd)?;
         vfs.close(entry.vfs_handle)
     }
+}
+
+static mut PROCESS_TABLE: [Option<Process>; MAX_PROCESSES] = [const { None }; MAX_PROCESSES];
+
+/// Registers `process` and returns its pid slot index.
+pub fn register(process: Process) -> ProcessId {
+    let pid = process.pid;
+    // SAFETY: BSP-only until a real process allocator exists.
+    unsafe {
+        let table = &mut *core::ptr::addr_of_mut!(PROCESS_TABLE);
+        for slot in table.iter_mut() {
+            if slot.is_none() {
+                *slot = Some(process);
+                return pid;
+            }
+        }
+    }
+    pid
+}
+
+/// Returns a shared reference to the process with `pid`.
+#[must_use]
+pub fn get(pid: ProcessId) -> Option<&'static Process> {
+    // SAFETY: Read-only lookup; callers must not mutate concurrently.
+    unsafe {
+        let table = &*core::ptr::addr_of!(PROCESS_TABLE);
+        table.iter().find_map(|slot| {
+            slot.as_ref().and_then(|proc| if proc.pid == pid { Some(proc) } else { None })
+        })
+    }
+}
+
+/// Runs `f` with mutable access to the process with `pid`.
+pub fn with_process<R>(pid: ProcessId, f: impl FnOnce(&mut Process) -> R) -> Option<R> {
+    // SAFETY: Exclusive access coordinated by syscall/scheduler context.
+    unsafe {
+        let table = &mut *core::ptr::addr_of_mut!(PROCESS_TABLE);
+        for slot in table.iter_mut() {
+            if let Some(proc) = slot.as_mut() {
+                if proc.pid == pid {
+                    return Some(f(proc));
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Runs `f` with mutable access to the current process, if any.
+pub fn with_current<R>(f: impl FnOnce(&mut Process) -> R) -> Option<R> {
+    let pid = crate::sched::current_process_id()?;
+    with_process(pid, f)
 }
 
 #[cfg(test)]

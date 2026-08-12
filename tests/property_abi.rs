@@ -1,7 +1,5 @@
 //! Property tests for the stable syscall ABI (`aether-abi`).
 
-mod support;
-
 #[path = "support/rng.rs"]
 mod rng;
 

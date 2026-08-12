@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **M6 user space:** VFS trait layer (`kernel/src/vfs/`), ramfs mounted at boot (`kernel/src/fs/ramfs.rs`, `mount.rs`), per-process fd table wired to syscalls.
+- Per-process page tables with kernel higher-half sharing; ELF64 loader maps user segments at `0x400000`; first ring-3 entry via `IRETQ` (`kernel/src/arch/x86_64/user_entry.rs`).
+- Embedded init ELF from `build/user/init.elf`; `scripts/build-user.ps1` cross-compiles for `x86_64-unknown-none`.
+- Syscall handlers: `open`, `read`, `close` (plus existing `write`, `exit`, `yield`, `getpid` from M5).
+- User runtime wrappers in `libs/aether-rt` (`open`, `read`, `close`, `yield_cpu`).
+- Host tests for ramfs fd table, syscall open path, and integration open/read pipeline.
 - **M5 security & syscalls:** `SYSCALL`/`SYSRET` entry via IA32_STAR/LSTAR/FMASK (`kernel/src/arch/x86_64/syscall.rs`); `int 0x80` documented as fallback only.
 - Syscall dispatch table validation, userspace pointer checks, and capability enforcement stubs (`kernel/src/syscall/dispatch.rs`, `validate.rs`).
 - Stub handlers: `write` (COM1 serial), `exit`, `yield` — wired to M4 scheduler; `getpid` returns current process id.
@@ -53,7 +59,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Kernel boot sequence: `mm::init` → GDT/IDT/PIC/timer → `sched::init` → worker thread → `syscall::init` → `sched::start` (STI + first context switch).
+- Kernel boot sequence: `mm::init` → GDT/IDT/PIC/timer → `sched::init` → worker thread → `syscall::init` → mount ramfs + spawn init → `sched::start`.
+- QEMU smoke test expects optional `Aether OS M6: userland started` and ring-3 `Aether init started` when user ELF is embedded.
+- README milestone table marks M6 as shipped; badge updated to M6.
 - Timer IRQ handler sends EOI before calling `sched::tick_preempt()`.
 - QEMU smoke test expects `Aether OS M4: scheduler initialized` and optionally worker thread output.
 - README milestone table marks M5 as shipped; badge updated to M5.

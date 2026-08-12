@@ -1,7 +1,5 @@
 //! Property tests for x86_64 GDT descriptor encoding.
 
-mod support;
-
 #[path = "support/rng.rs"]
 mod rng;
 

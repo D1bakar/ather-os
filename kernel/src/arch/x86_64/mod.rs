@@ -25,6 +25,12 @@ pub mod switch;
 #[cfg(not(feature = "host-stub"))]
 mod syscall;
 
+#[cfg(not(feature = "host-stub"))]
+pub mod user_entry;
+
+#[cfg(not(feature = "host-stub"))]
+pub use user_entry::enter_user_mode;
+
 /// Initializes PIC remapping, timer IRQ handler, and PIT (~100 Hz).
 ///
 /// Requires [`gdt::init`] and [`idt::init`] to have run first.

@@ -1,12 +1,16 @@
-//! Syscall demux, pointer validation, capability enforcement, and stub handlers.
+//! Syscall demux, pointer validation, capability enforcement, and handlers.
 
 use super::validate::{validate_user_cstr, validate_user_slice};
 use aether_abi::{lookup_syscall, SyscallArgs, SyscallDescriptor, SyscallNumber};
 use aether_types::{CapabilityRights, ErrorCode, SecurityDefaults};
 
 use crate::cap::with_current_table;
+use crate::fs::mount;
+use crate::process::{self, FdEntry, Process, ROOT_MOUNT_ID};
 use crate::sched;
 use crate::security::audit::record_event;
+use crate::vfs::path::{AccessMode, Credentials};
+use crate::vfs::{open_with_validation, FileDescriptor, OpenFlags};
 use aether_types::AuditEventKind;
 
 #[cfg(not(feature = "host-stub"))]
@@ -85,6 +89,14 @@ fn enforce_syscall_capabilities(desc: &SyscallDescriptor) -> Result<(), ErrorCod
         return Ok(());
     }
 
+    if let Some(pid) = sched::current_process_id() {
+        if let Some(result) = process::with_process(pid, |proc| {
+            proc.capabilities.enforce_syscall(object, desc.required_rights)
+        }) {
+            return result;
+        }
+    }
+
     with_current_table(|table| table.enforce_syscall(object, desc.required_rights))
 }
 
@@ -130,16 +142,100 @@ fn sys_write(args: SyscallArgs) -> i64 {
     }
 }
 
-fn sys_read(_args: SyscallArgs) -> i64 {
-    ErrorCode::NotSupported.as_i64()
+fn sys_read(args: SyscallArgs) -> i64 {
+    let fd = FileDescriptor(args.arg0 as u32);
+    let count = args.arg2;
+    if count == 0 {
+        return 0;
+    }
+
+    #[cfg(feature = "host-stub")]
+    {
+        let _ = fd;
+        0
+    }
+
+    #[cfg(not(feature = "host-stub"))]
+    {
+        const MAX_READ: usize = 4096;
+        let len = count.min(MAX_READ as u64) as usize;
+        let mut scratch = [0u8; MAX_READ];
+
+        let read = match process::with_current(|proc| {
+            mount::with_root(|fs| proc.read(fs, fd, &mut scratch[..len]))
+        }) {
+            Some(Ok(n)) => n,
+            Some(Err(err)) => return err.code.as_i32() as i64,
+            None => return ErrorCode::Internal.as_i64(),
+        };
+
+        if copy_to_user(args.arg1, &scratch[..read]).is_err() {
+            return ErrorCode::BadAddress.as_i64();
+        }
+        read as i64
+    }
 }
 
-fn sys_open(_args: SyscallArgs) -> i64 {
-    ErrorCode::NotSupported.as_i64()
+fn sys_open(args: SyscallArgs) -> i64 {
+    let flags = OpenFlags::from_bits(args.arg1 as u32);
+
+    #[cfg(feature = "host-stub")]
+    {
+        let _ = flags;
+        ErrorCode::NotSupported.as_i64()
+    }
+
+    #[cfg(not(feature = "host-stub"))]
+    {
+        let mut path_buf = [0u8; 256];
+        let path_len = match copy_user_cstr(args.arg0, &mut path_buf) {
+            Ok(len) => len,
+            Err(code) => return code.as_i64(),
+        };
+        let path = match core::str::from_utf8(&path_buf[..path_len]) {
+            Ok(text) => text,
+            Err(_) => return ErrorCode::InvalidArgument.as_i64(),
+        };
+
+        match process::with_current(|proc| open_path(proc, path, flags)) {
+            Some(Ok(fd)) => fd.index() as i64,
+            Some(Err(err)) => err.code.as_i32() as i64,
+            None => ErrorCode::Internal.as_i64(),
+        }
+    }
 }
 
-fn sys_close(_args: SyscallArgs) -> i64 {
-    ErrorCode::NotSupported.as_i64()
+fn sys_close(args: SyscallArgs) -> i64 {
+    let fd = FileDescriptor(args.arg0 as u32);
+
+    #[cfg(feature = "host-stub")]
+    {
+        let _ = fd;
+        ErrorCode::NotSupported.as_i64()
+    }
+
+    #[cfg(not(feature = "host-stub"))]
+    {
+        match process::with_current(|proc| mount::with_root(|fs| proc.close(fs, fd))) {
+            Some(Ok(())) => ErrorCode::Success.as_i64(),
+            Some(Err(err)) => err.code.as_i32() as i64,
+            None => ErrorCode::Internal.as_i64(),
+        }
+    }
+}
+
+/// Opens `path` on the root ramfs and records the handle in `proc`'s fd table.
+#[allow(dead_code)] // Host integration tests call this via `aether_kernel::syscall::dispatch::open_path`.
+pub fn open_path(
+    proc: &mut Process,
+    path: &str,
+    flags: OpenFlags,
+) -> Result<FileDescriptor, aether_types::AetherError> {
+    mount::with_root(|fs| {
+        let vfs_fd =
+            open_with_validation(fs, path, flags, &Credentials::kernel(), AccessMode::Read)?;
+        proc.fd_table.allocate(FdEntry { mount_id: ROOT_MOUNT_ID, vfs_handle: vfs_fd, flags })
+    })
 }
 
 fn sys_yield() -> i64 {
@@ -162,6 +258,30 @@ fn copy_from_user(dest: &mut [u8], src: u64) -> Result<(), ErrorCode> {
     Ok(())
 }
 
+/// Copies `data` into a validated userspace buffer.
+#[cfg(not(feature = "host-stub"))]
+fn copy_to_user(dest: u64, data: &[u8]) -> Result<(), ErrorCode> {
+    for (index, &byte) in data.iter().enumerate() {
+        // SAFETY: `dest` was validated as a canonical user buffer by dispatch.
+        unsafe { core::ptr::write_volatile((dest + index as u64) as *mut u8, byte) };
+    }
+    Ok(())
+}
+
+/// Copies a NUL-terminated string from userspace into `buf`.
+#[cfg(not(feature = "host-stub"))]
+fn copy_user_cstr(ptr: u64, buf: &mut [u8]) -> Result<usize, ErrorCode> {
+    for (index, slot) in buf.iter_mut().enumerate() {
+        // SAFETY: `ptr` was validated as a user C string by dispatch.
+        let byte = unsafe { core::ptr::read_volatile((ptr + index as u64) as *const u8) };
+        *slot = byte;
+        if byte == 0 {
+            return Ok(index);
+        }
+    }
+    Err(ErrorCode::InvalidArgument)
+}
+
 fn sys_not_implemented() -> i64 {
     ErrorCode::NotSupported.as_i64()
 }
@@ -181,9 +301,12 @@ impl ErrorCodeExt for ErrorCode {
 mod tests {
     use super::*;
     use crate::cap::CapabilityTable;
+    use crate::fs::mount;
+    use crate::process::{Process, ProcessId};
+    use crate::sched::TaskId;
     use crate::security::audit::{clear, record_count};
     use aether_abi::SyscallNumber;
-    use aether_types::ObjectKind;
+    use aether_types::{ObjectKind, PhysicalAddress};
 
     #[test]
     fn unknown_syscall_returns_not_supported() {
@@ -234,5 +357,16 @@ mod tests {
         });
         let args = SyscallArgs::new(1, 0x1000, 8, 0, 0, 0);
         assert_eq!(dispatch(SyscallNumber::Write.as_u64(), args), 8);
+    }
+
+    #[test]
+    fn open_path_allocates_process_fd() {
+        mount::init();
+        mount::with_root(|fs| fs.seed_file("/init", b"boot").expect("seed"));
+        let mut proc = Process::new(ProcessId::new(7), PhysicalAddress::new(0), TaskId::new(1));
+        proc.grant_default_io_caps();
+        let fd = open_path(&mut proc, "/init", OpenFlags::READ).expect("open");
+        assert_eq!(fd.index(), 0);
+        assert_eq!(proc.fd_table.open_count(), 1);
     }
 }

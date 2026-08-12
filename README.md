@@ -3,12 +3,11 @@
 [![CI](https://github.com/D1bakar/ather-os/actions/workflows/ci.yml/badge.svg)](https://github.com/D1bakar/ather-os/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust 1.85](https://img.shields.io/badge/rust-1.85-orange.svg)](rust-toolchain.toml)
-[![Milestone](https://img.shields.io/badge/milestone-M5-yellow.svg)](docs/ROADMAP.md)
+[![Milestone](https://img.shields.io/badge/milestone-M6-yellow.svg)](docs/ROADMAP.md)
 
 **Aether OS** is a security-first, Rust-native operating system for **x86_64**, bootable via **UEFI**.
-The project is in **early development**. M5 delivers syscall dispatch via the `SYSCALL` instruction,
-userspace pointer validation, ring-3 GDT segments, and a capability enforcement scaffold integrated
-with the M4 scheduler.
+The project is in **early development**. M6 delivers a ramfs-backed VFS, per-process page tables,
+ring-3 init via embedded ELF, and `open`/`read`/`close` syscalls alongside the M5 syscall path.
 
 > **Honest status:** This is research and engineering infrastructure, not a daily-driver OS.
 > See the [milestone table](#milestones-m0m10) for what is shipped vs planned.
@@ -33,7 +32,7 @@ with the M4 scheduler.
 | **M3** | Physical/virtual memory, page tables, kernel heap | **Shipped** | Host-tested frame allocator; QEMU paging smoke optional |
 | **M4** | Scheduler, preemption, context switch, kernel threads | **Shipped** | PIT-driven preemption; APIC timer still planned |
 | **M5** | Syscall dispatch, user-mode segments, capability scaffold | **Shipped** | MSR `SYSCALL` entry; host-tested validation |
-| **M6** | VFS (tmpfs, devfs), user init, minimal shell | Planned | |
+| **M6** | VFS (ramfs), user init, ring-3 entry, fd table | **Shipped** | Embedded init ELF; QEMU-validated when tooling present |
 | **M7** | Networking stack, socket syscalls | Planned | |
 | **M8** | Framebuffer / basic graphics, input (keyboard) | Planned | |
 | **M9** | Application packaging, package manager | Planned (host scaffold) | Spec + `system/pkgmgr/` skeleton; no runtime install |
@@ -41,25 +40,26 @@ with the M4 scheduler.
 
 Full milestone definitions: [docs/ROADMAP.md](docs/ROADMAP.md).
 
-## What works today (M5)
+## What works today (M6)
 
-- Build UEFI boot loader (`BOOTX64.EFI`) and bare-metal `kernel.elf`
+- Build UEFI boot loader (`BOOTX64.EFI`) and bare-metal `kernel.elf` with embedded `init.elf`
 - Boot under **QEMU + OVMF** with serial output
 - Initialize GDT (including ring-3 user segments), 256-entry IDT, remapped 8259 PIC, PIT at ~100 Hz
 - Physical frame allocator, identity + higher-half paging, kernel heap (M3)
 - Round-robin scheduler with idle + worker kernel threads and context switching (M4)
 - `SYSCALL`/`SYSRET` MSR entry, dispatch table validation, userspace pointer checks, capability stubs
-- Stub syscalls: `write` (serial), `exit`, `yield`, `getpid`
+- Ramfs mounted at `/`; syscalls: `write` (serial), `read`, `open`, `close`, `exit`, `yield`, `getpid`
+- First user process (init) enters ring 3 and prints `Aether init started` via syscall
 - Periodic `[timer] tick N` and `[worker] kernel thread tick` messages on COM1
-- Host integration tests for GDT/IDT layout, syscall dispatch, pointer validation, and scheduler queue
+- Host integration tests for VFS/ramfs, fd table, syscall open path, GDT/IDT, scheduler queue
 - CI quality gate (fmt, clippy, tests, cross-target builds)
 
 ## What does not work yet
 
 - Real PC hardware boot (untested)
 - APIC-based interrupt delivery (legacy PIC + PIT only)
-- Live ring-3 user processes (GDT + syscalls ready; M6 init/shell)
-- Full VFS mount, networking, graphics (host-testable scaffolds exist)
+- Timer preemption of ring-3 user tasks (skipped until full user context save)
+- User shell / exec, full devfs/tmpfs, networking, graphics (host scaffolds exist)
 - Signed updates or package distribution
 
 ## Architecture

@@ -124,6 +124,65 @@ pub fn start() -> ! {
 #[cfg(feature = "host-stub")]
 pub fn init() {}
 
+#[cfg(not(feature = "host-stub"))]
+static mut INIT_USER_TASK: Option<Task> = None;
+#[cfg(not(feature = "host-stub"))]
+static mut INIT_USER_STACK: [u8; KERNEL_STACK_SIZE] = [0; KERNEL_STACK_SIZE];
+
+/// Creates the init user task and enqueues it on the run queue.
+#[cfg(not(feature = "host-stub"))]
+pub fn spawn_init_user_task(
+    task_id: TaskId,
+    pid: crate::process::ProcessId,
+    cr3: u64,
+    user_rip: u64,
+    user_rsp: u64,
+) {
+    // SAFETY: Called once on the BSP before scheduling starts.
+    unsafe {
+        let stack_top = core::ptr::addr_of_mut!(INIT_USER_STACK) as u64 + KERNEL_STACK_SIZE as u64;
+        INIT_USER_TASK = Some(Task::new_user(
+            task_id,
+            user_task_trampoline as u64,
+            stack_top,
+            cr3,
+            user_rip,
+            user_rsp,
+            pid,
+        ));
+        let task_ptr = NonNull::from(
+            (&mut *core::ptr::addr_of_mut!(INIT_USER_TASK)).as_mut().expect("init user task"),
+        );
+        register_kernel_thread(task_ptr);
+        enqueue(task_ptr);
+    }
+}
+
+/// Returns `(user_rip, user_rsp, cr3)` for the currently running user task.
+#[cfg(not(feature = "host-stub"))]
+#[must_use]
+pub fn current_user_entry() -> Option<(u64, u64, u64)> {
+    // SAFETY: Read-only access to CURRENT.
+    unsafe {
+        CURRENT.and_then(|t| {
+            let task = &*t.as_ptr();
+            if task.is_user_task() {
+                Some((task.user_rip, task.user_rsp, task.context.cr3))
+            } else {
+                None
+            }
+        })
+    }
+}
+
+/// Returns the kernel stack top for the currently running task.
+#[cfg(not(feature = "host-stub"))]
+#[must_use]
+pub fn current_kernel_stack_top() -> Option<u64> {
+    // SAFETY: Read-only access to CURRENT.
+    unsafe { CURRENT.map(|t| (*t.as_ptr()).kernel_stack_top) }
+}
+
 /// Returns the kernel stack top used for syscall entry (idle task stack).
 #[cfg(not(feature = "host-stub"))]
 #[must_use]
@@ -223,9 +282,12 @@ pub fn yield_now() {
 #[cfg(feature = "host-stub")]
 pub fn yield_now() {}
 
-/// Timer-driven preemption stub — same round-robin policy for now.
+/// Timer-driven preemption — skipped while a ring-3 user task is running (M6).
 #[cfg(not(feature = "host-stub"))]
 pub fn tick_preempt() {
+    if current_task_is_user() {
+        return;
+    }
     schedule_internal(true);
 }
 
@@ -310,6 +372,26 @@ unsafe fn pick_next(current: NonNull<Task>) -> NonNull<Task> {
             Some(n) if n != start => n,
             _ => return current,
         };
+    }
+}
+
+/// Returns whether the currently running task executes user code in ring 3.
+#[cfg(not(feature = "host-stub"))]
+#[must_use]
+pub fn current_task_is_user() -> bool {
+    // SAFETY: Read-only access to CURRENT.
+    unsafe { CURRENT.is_some_and(|t| (*t.as_ptr()).is_user_task()) }
+}
+
+#[cfg(not(feature = "host-stub"))]
+extern "C" fn user_task_trampoline() -> ! {
+    let (user_rip, user_rsp, cr3) = current_user_entry().expect("user task");
+    crate::arch::x86_64::gdt::set_kernel_stack(
+        current_kernel_stack_top().expect("user kernel stack"),
+    );
+    // SAFETY: Validated during ELF load and task setup.
+    unsafe {
+        crate::arch::x86_64::enter_user_mode(user_rip, user_rsp, cr3);
     }
 }
 

@@ -60,6 +60,78 @@ impl MmapProt {
 /// Sentinel returned by [`mmap`] when mapping fails.
 pub const MAP_FAILED: *mut u8 = usize::MAX as *mut u8;
 
+/// Yields the CPU to another runnable task.
+#[must_use]
+pub fn yield_cpu() -> i32 {
+    #[cfg(feature = "host")]
+    {
+        0
+    }
+
+    #[cfg(not(feature = "host"))]
+    {
+        raw_syscall0(SyscallNumber::Yield.as_u64()) as i32
+    }
+}
+
+/// Opens `path` with `flags` (`OpenFlags` bits from the kernel VFS).
+#[must_use]
+pub fn open(path: &str, flags: u32) -> i32 {
+    #[cfg(feature = "host")]
+    {
+        let _ = (path, flags);
+        -7
+    }
+
+    #[cfg(not(feature = "host"))]
+    {
+        let mut buf = [0u8; 256];
+        let bytes = path.as_bytes();
+        let len = bytes.len().min(buf.len() - 1);
+        buf[..len].copy_from_slice(&bytes[..len]);
+        buf[len] = 0;
+        raw_syscall3(SyscallNumber::Open.as_u64(), buf.as_ptr() as u64, flags as u64, 0) as i32
+    }
+}
+
+/// Reads up to `buf.len()` bytes from `fd`.
+#[must_use]
+pub fn read(fd: i32, buf: &mut [u8]) -> isize {
+    #[cfg(feature = "host")]
+    {
+        let _ = (fd, buf);
+        0
+    }
+
+    #[cfg(not(feature = "host"))]
+    {
+        if buf.is_empty() {
+            return 0;
+        }
+        raw_syscall3(
+            SyscallNumber::Read.as_u64(),
+            fd as u64,
+            buf.as_mut_ptr() as u64,
+            buf.len() as u64,
+        ) as isize
+    }
+}
+
+/// Closes an open file descriptor.
+#[must_use]
+pub fn close(fd: i32) -> i32 {
+    #[cfg(feature = "host")]
+    {
+        let _ = fd;
+        0
+    }
+
+    #[cfg(not(feature = "host"))]
+    {
+        raw_syscall1(SyscallNumber::Close.as_u64(), fd as u64) as i32
+    }
+}
+
 /// Terminates the calling process.
 pub fn exit(code: i32) -> ! {
     #[cfg(feature = "host")]

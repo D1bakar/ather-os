@@ -15,6 +15,7 @@ mod dispatch;
 mod validate;
 
 pub use dispatch::dispatch;
+pub use dispatch::open_path;
 pub use validate::{validate_user_cstr, validate_user_slice};
 
 /// Initializes the syscall layer and seeds the bring-up capability table.
@@ -22,6 +23,7 @@ pub fn init(kernel_stack_top: u64) {
     crate::cap::with_current_table(|table| {
         use aether_types::{CapabilityRights, ObjectKind};
         let _ = table.grant(ObjectKind::File, CapabilityRights::WRITE);
+        let _ = table.grant(ObjectKind::File, CapabilityRights::READ);
     });
 
     init_syscall_msrs(kernel_stack_top);

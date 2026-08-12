@@ -45,6 +45,12 @@ pub struct Task {
     pub process: Option<ProcessId>,
     /// Round-robin run-queue link.
     next: Option<NonNull<Task>>,
+    /// `true` when this task runs user code in ring 3.
+    pub is_user: bool,
+    /// User entry RIP (valid when [`Self::is_user`]).
+    pub user_rip: u64,
+    /// User stack pointer (valid when [`Self::is_user`]).
+    pub user_rsp: u64,
 }
 
 impl Task {
@@ -58,7 +64,40 @@ impl Task {
             kernel_stack_top,
             process: None,
             next: None,
+            is_user: false,
+            user_rip: 0,
+            user_rsp: 0,
         }
+    }
+
+    /// Creates a user task that enters ring 3 via the kernel trampoline.
+    #[must_use]
+    pub const fn new_user(
+        id: TaskId,
+        trampoline: u64,
+        kernel_stack_top: u64,
+        cr3: u64,
+        user_rip: u64,
+        user_rsp: u64,
+        process: ProcessId,
+    ) -> Self {
+        Self {
+            id,
+            state: TaskState::Ready,
+            context: CpuContext::for_entry(trampoline, kernel_stack_top, cr3),
+            kernel_stack_top,
+            process: Some(process),
+            next: None,
+            is_user: true,
+            user_rip,
+            user_rsp,
+        }
+    }
+
+    /// Returns whether this task executes user code.
+    #[must_use]
+    pub const fn is_user_task(&self) -> bool {
+        self.is_user
     }
 
     /// Links this task to `next` in the round-robin queue.
