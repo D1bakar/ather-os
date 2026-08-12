@@ -32,7 +32,7 @@ function Find-OvmfFile {
         "$env:ProgramFiles\qemu\share\OVMF\$Name",
         "/usr/share/OVMF/$Name",
         "/usr/share/ovmf/x64/$Name",
-        "/usr/share/edk2/ovmf/$Name"
+        "/usr/share/edk2-ovmf/OVMF/$Name"
     )
     foreach ($path in $candidates) {
         if (Test-Path $path) { return $path }
@@ -42,8 +42,10 @@ function Find-OvmfFile {
 
 $OvmfCode = Find-OvmfFile "OVMF_CODE.fd"
 if (-not $OvmfCode) { $OvmfCode = Find-OvmfFile "OVMF_CODE.4MB.fd" }
+if (-not $OvmfCode) { $OvmfCode = Find-OvmfFile "OVMF_CODE_4M.fd" }
 $OvmfVars = Find-OvmfFile "OVMF_VARS.fd"
 if (-not $OvmfVars) { $OvmfVars = Find-OvmfFile "OVMF_VARS.4MB.fd" }
+if (-not $OvmfVars) { $OvmfVars = Find-OvmfFile "OVMF_VARS_4M.fd" }
 
 if (-not $OvmfCode -or -not $OvmfVars) {
     Write-Error @"

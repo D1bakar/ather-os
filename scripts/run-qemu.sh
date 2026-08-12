@@ -47,8 +47,8 @@ find_ovmf() {
     return 1
 }
 
-OVMF_CODE="$(find_ovmf OVMF_CODE.fd || find_ovmf OVMF_CODE.4MB.fd || true)"
-OVMF_VARS="$(find_ovmf OVMF_VARS.fd || find_ovmf OVMF_VARS.4MB.fd || true)"
+OVMF_CODE="$(find_ovmf OVMF_CODE.fd || find_ovmf OVMF_CODE.4MB.fd || find_ovmf OVMF_CODE_4M.fd || true)"
+OVMF_VARS="$(find_ovmf OVMF_VARS.fd || find_ovmf OVMF_VARS.4MB.fd || find_ovmf OVMF_VARS_4M.fd || true)"
 
 if [[ -z "$OVMF_CODE" || -z "$OVMF_VARS" ]]; then
     echo "OVMF firmware not found. Install ovmf/edk2-ovmf package or place files under ovmf/." >&2
