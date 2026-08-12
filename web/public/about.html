@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="About Aether OS — security-first systems research, Universal Platform, honest milestone tracking">
+  <title>About — Aether OS</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .hero-ascii {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      line-height: 1.2;
+      color: var(--muted);
+      margin: 0 0 1rem;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .hero-lead {
+      font-size: 1.05rem;
+      margin: 0 0 0.5rem;
+    }
+    .hero-sub {
+      color: var(--muted);
+      margin: 0 0 1.5rem;
+    }
+    nav.site-nav {
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+    }
+    nav.site-nav a {
+      margin-right: 1rem;
+    }
+    .pill {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-family: var(--mono);
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid #30363d;
+      margin-right: 0.35rem;
+      margin-bottom: 0.35rem;
+    }
+    .pill-shipped { color: var(--ok); border-color: #238636; }
+    .pill-planned { color: var(--warn); border-color: #9e6a03; }
+    ul.compact { margin: 0.5rem 0; padding-left: 1.25rem; }
+    ul.compact li { margin-bottom: 0.35rem; }
+  </style>
+</head>
+<body>
+  <nav class="site-nav" aria-label="Site">
+    <a href="index.html">Platform</a>
+    <a href="about.html" aria-current="page">About</a>
+    <a href="https://github.com/D1bakar/ather-os">GitHub</a>
+  </nav>
+
+  <header>
+    <pre class="hero-ascii" aria-hidden="true">    ░▒▓  A E T H E R  ▓▒░</pre>
+    <p class="hero-lead">A security-first operating system engineered from first principles.</p>
+    <p class="hero-sub">Run artifacts in QEMU today · Browser platform in development</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Mission</h2>
+      <p>
+        Aether OS exists to explore what a modern general-purpose kernel looks like when
+        <strong>security is a first-class design constraint</strong>—not a patch cycle after the fact.
+        We build in Rust for memory safety at the crate boundary, document every significant decision
+        as a numbered ADR, and ship only what we can verify: serial output in QEMU, host tests in CI,
+        checksums in a release manifest.
+      </p>
+      <p class="note">
+        This is systems research infrastructure. It is not a daily-driver OS, a consumer product,
+        or a browser demo with a fake desktop.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Two products, one artifact chain</h2>
+      <p>Aether is developed as two coupled surfaces over identical boot artifacts:</p>
+      <ul class="compact">
+        <li>
+          <strong>Aether OS</strong> — Rust kernel, UEFI boot loader, user runtime.
+          Target: <code>x86_64</code> with OVMF. Verified runtime: QEMU + COM1 serial.
+        </li>
+        <li>
+          <strong>Aether Web (Universal Platform)</strong> — Static delivery of the same
+          <code>BOOTX64.EFI</code> and <code>kernel.elf</code> with manifest integrity.
+          Phase 1 ships the pipeline; Phase 2 targets in-browser boot via qemu.wasm.
+        </li>
+      </ul>
+      <p>
+        We explicitly rejected parallel BIOS boot paths and simulated OS UIs that would fork the
+        kernel for web demos. See
+        <a href="https://github.com/D1bakar/ather-os/blob/main/docs/adr/ADR-0010-browser-vm-architecture.md">ADR-0010</a>.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Current status</h2>
+      <p>
+        <span class="pill pill-shipped">M0–M6.1 shipped</span>
+        <span class="pill pill-shipped">Web Phase 1 shipped</span>
+        <span class="pill pill-planned">Web Phase 2 planned</span>
+        <span class="pill pill-planned">M7+ planned</span>
+      </p>
+      <ul class="compact">
+        <li><strong>Shipped:</strong> UEFI boot, scheduler, paging, syscalls, ramfs, ring-3 init in QEMU</li>
+        <li><strong>Shipped:</strong> Web manifest, artifact checksums, honest landing page</li>
+        <li><strong>Not shipped:</strong> In-browser UEFI boot (blocked on qemu.wasm integration)</li>
+        <li><strong>Not shipped:</strong> Real hardware boot, networking, graphics, production updates</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Team philosophy</h2>
+      <ul class="compact">
+        <li><strong>Evidence over narrative.</strong> Milestones close when CI or QEMU proves them—not when slides look good.</li>
+        <li><strong>Honest ledgers.</strong> Planned work is labeled planned. Scaffolds are not shipped features.</li>
+        <li><strong>ADR-governed architecture.</strong> Significant changes require a written decision record.</li>
+        <li><strong>Open source by default.</strong> MIT license. Public development on GitHub.</li>
+        <li><strong>Security-first, fail-closed.</strong> Capability model, syscall validation, threat model—all documented before scale.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Security</h2>
+      <p>
+        Vulnerability reports: <strong>security@aether-os.dev</strong> (not public GitHub issues).
+        Full policy in
+        <a href="https://github.com/D1bakar/ather-os/blob/main/SECURITY.md">SECURITY.md</a>.
+        Web delivery threat model:
+        <a href="https://github.com/D1bakar/ather-os/blob/main/docs/security/web-threat-model.md">web-threat-model.md</a>.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Roadmap</h2>
+      <p>
+        Kernel milestones M0–M10 and Universal Platform phases are tracked in
+        <a href="https://github.com/D1bakar/ather-os/blob/main/docs/ROADMAP.md">docs/ROADMAP.md</a>.
+        Architecture overview:
+        <a href="https://github.com/D1bakar/ather-os/blob/main/ARCHITECTURE.md">ARCHITECTURE.md</a>.
+      </p>
+      <p class="note">
+        Next kernel focus: M7 networking. Next platform focus: qemu.wasm worker integration (Phase 2).
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      <a href="https://github.com/D1bakar/ather-os">D1bakar/ather-os</a>
+      · <a href="https://github.com/D1bakar/ather-os/blob/main/docs/adr/ADR-0010-browser-vm-architecture.md">ADR-0010</a>
+      · <a href="index.html">Universal Platform</a>
+      · MIT License
+    </p>
+  </footer>
+</body>
+</html>

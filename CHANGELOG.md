@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Documentation redesign:** README rewritten for Universal Platform identity — research-lab tone, honest shipped vs planned boundaries (M0–M6.1, web Phase 1, M7+ / Phase 2), architecture diagram with parallel web path, Try it section for QEMU and web manifest pipeline.
+- **`web/public/about.html`:** About page matching README voice — mission, Aether OS + Aether Web products, team philosophy, security, roadmap pointers to ADR-0010 and GitHub.
 - **M6.1 QEMU-verified ring-3 boot:** `build-boot.sh` builds and embeds user init ELF before kernel compile; CI/QEMU scripts invoke shell helpers via `bash`; serial smoke test requires `Aether OS M6: userland started` and ring-3 `Aether init started`; `tests/qemu_boot.rs` asserts M6 init strings.
 - **M6 user space:** VFS trait layer (`kernel/src/vfs/`), ramfs mounted at boot (`kernel/src/fs/ramfs.rs`, `mount.rs`), per-process fd table wired to syscalls.
 - Per-process page tables with kernel higher-half sharing; ELF64 loader maps user segments at `0x400000`; first ring-3 entry via `IRETQ` (`kernel/src/arch/x86_64/user_entry.rs`).
