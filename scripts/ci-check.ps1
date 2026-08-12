@@ -29,7 +29,7 @@ cargo test --workspace
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "==> cargo build --workspace"
-cargo build --workspace
+cargo build --workspace --exclude aether-boot
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "==> cargo build UEFI boot loader (release)"
@@ -39,7 +39,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host "==> cargo build bare-metal kernel (release)"
 cargo build -p aether-kernel --no-default-features --features bare-metal `
     --target x86_64-unknown-none --release `
-    -Z build-std=core,compiler_builtins `
+    -Z build-std=core,alloc,compiler_builtins `
     -Z build-std-features=compiler-builtins-mem
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

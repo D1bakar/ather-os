@@ -29,7 +29,7 @@ echo "==> cargo test --workspace"
 cargo test --workspace
 
 echo "==> cargo build --workspace --release"
-cargo build --workspace --release
+cargo build --workspace --exclude aether-boot --release
 
 echo "==> boot artifacts (ESP layout)"
 bash "$ROOT/scripts/build-boot.sh"

@@ -25,7 +25,7 @@ echo "==> cargo test --workspace"
 cargo test --workspace
 
 echo "==> cargo build --workspace"
-cargo build --workspace
+cargo build --workspace --exclude aether-boot
 
 echo "==> cargo build UEFI boot loader (release)"
 cargo build -p aether-boot --target x86_64-unknown-uefi --release
@@ -33,7 +33,7 @@ cargo build -p aether-boot --target x86_64-unknown-uefi --release
 echo "==> cargo build bare-metal kernel (release)"
 cargo build -p aether-kernel --no-default-features --features bare-metal \
     --target x86_64-unknown-none --release \
-    -Z build-std=core,compiler_builtins \
+    -Z build-std=core,alloc,compiler_builtins \
     -Z build-std-features=compiler-builtins-mem
 
 echo ""

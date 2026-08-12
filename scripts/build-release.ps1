@@ -39,7 +39,7 @@ cargo test --workspace
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "==> cargo build --workspace --release"
-cargo build --workspace --release
+cargo build --workspace --exclude aether-boot --release
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "==> boot artifacts (ESP layout)"

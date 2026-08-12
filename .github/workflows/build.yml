@@ -37,7 +37,7 @@ jobs:
             ${{ runner.os }}-build-
 
       - name: Build workspace
-        run: cargo build --workspace --release
+        run: cargo build --workspace --exclude aether-boot --release
 
       - name: Upload artifacts
         if: matrix.os == 'ubuntu-latest'
