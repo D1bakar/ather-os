@@ -58,6 +58,7 @@ core::arch::global_asm!(
     "exception_common:",
     "mov rdi, [rsp]",
     "mov rsi, [rsp + 8]",
+    "mov rdx, [rsp + 16]",
     "add rsp, 16",
     "call exception_dispatch",
     "cli",
@@ -326,7 +327,8 @@ extern "C" {
 
 /// Dispatched from assembly for CPU exceptions (vectors 0–31).
 #[no_mangle]
-extern "C" fn exception_dispatch(vector: u64, error_code: u64) -> ! {
+extern "C" fn exception_dispatch(vector: u64, error_code: u64, fault_rip: u64) -> ! {
+    log_ring3_exception_context(fault_rip);
     match vector {
         0 => handle_divide_error(error_code),
         3 => handle_breakpoint(error_code),
@@ -412,6 +414,25 @@ fn handle_unhandled_interrupt(vector: u64) -> ! {
     write_hex_u64(vector);
     serial::write_str("\r\n");
     halt_forever();
+}
+
+/// Logs ring-3 fault context (RIP/CS/CR3) for bring-up diagnostics.
+fn log_ring3_exception_context(fault_rip: u64) {
+    let cs: u64;
+    // SAFETY: Reading CS is valid in the exception handler.
+    unsafe {
+        core::arch::asm!("mov {0:x}, cs", out(reg) cs, options(nomem, nostack));
+    }
+    if (cs & 3) != 3 {
+        return;
+    }
+    serial::write_str("[user] exception in ring 3\r\n  RIP: ");
+    write_hex_u64(fault_rip);
+    serial::write_str("\r\n  CS: ");
+    write_hex_u64(cs);
+    serial::write_str("\r\n  CR3: ");
+    write_hex_u64(read_cr3());
+    serial::write_str("\r\n");
 }
 
 fn write_error_code(error_code: u64) {

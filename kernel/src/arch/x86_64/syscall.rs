@@ -200,6 +200,7 @@ extern "C" fn syscall_dispatch_rust(frame: *const SyscallTrapFrame) -> i64 {
     let frame = unsafe { &*frame };
     if frame.rax == aether_abi::SyscallNumber::Write.as_u64() {
         crate::serial::write_str("[syscall] write entry\r\n");
+        crate::sched::mark_init_write_seen();
     }
     let args = SyscallArgs::new(frame.rdi, frame.rsi, frame.rdx, frame.r10, frame.r8, frame.r9);
     crate::syscall::dispatch(frame.rax, args)

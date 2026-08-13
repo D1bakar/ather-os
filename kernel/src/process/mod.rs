@@ -152,6 +152,24 @@ impl Process {
         let _ = self.capabilities.grant(ObjectKind::File, CapabilityRights::WRITE);
     }
 
+    /// Grants every object kind with all rights (init pid 1 bring-up).
+    pub fn grant_all_caps(&mut self) {
+        let all = CapabilityRights::READ
+            .union(CapabilityRights::WRITE)
+            .union(CapabilityRights::MAP)
+            .union(CapabilityRights::EXECUTE)
+            .union(CapabilityRights::DELEGATE)
+            .union(CapabilityRights::DESTROY);
+        for kind in [
+            ObjectKind::File,
+            ObjectKind::Device,
+            ObjectKind::Memory,
+            ObjectKind::Process,
+        ] {
+            let _ = self.capabilities.grant(kind, all);
+        }
+    }
+
     /// Closes a process fd and the underlying VFS handle.
     pub fn close<V: Vfs>(&mut self, vfs: &mut V, fd: FileDescriptor) -> AetherResult<()> {
         let entry = self.fd_table.close(fd)?;

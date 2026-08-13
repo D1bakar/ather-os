@@ -73,6 +73,7 @@ extern "C" fn timer_handler() {
         crate::serial::write_str("\r\n");
     }
 
+    crate::sched::check_init_watchdog(tick);
     crate::sched::tick_preempt();
 }
 

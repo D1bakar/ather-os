@@ -51,7 +51,11 @@ fn spawn_init(image: &[u8]) -> Result<crate::process::ProcessId, ElfError> {
 
     serial::write_str("M6: init register process\r\n");
     let mut proc = Process::new(pid, page_table, task_id);
-    proc.grant_default_io_caps();
+    if pid.0 == 1 {
+        proc.grant_all_caps();
+    } else {
+        proc.grant_default_io_caps();
+    }
     process::register(proc);
 
     serial::write_str("M6: init enqueue user task\r\n");

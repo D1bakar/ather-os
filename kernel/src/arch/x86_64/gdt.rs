@@ -143,7 +143,8 @@ unsafe fn populate_gdt() {
     GDT.entries[layout::USER_DATA_INDEX as usize] = user_data_descriptor();
     GDT.entries[layout::USER_CODE_INDEX as usize] = user_code_descriptor();
 
-    let tss_addr = core::ptr::addr_of!(TSS) as u64;
+    let tss_addr =
+        crate::mm::link_to_direct_virt(core::ptr::addr_of!(TSS) as u64);
     let (tss_low, tss_high) = tss_descriptor(tss_addr, tss_size());
     GDT.entries[TSS_INDEX as usize] = tss_low;
     GDT.entries[TSS_INDEX as usize + 1] = tss_high;
@@ -153,7 +154,7 @@ unsafe fn populate_gdt() {
 unsafe fn gdt_pointer() -> DescriptorTablePointer {
     DescriptorTablePointer {
         limit: table_limit_bytes(GDT_ENTRY_COUNT, layout::GDT_ENTRY_SIZE),
-        base: core::ptr::addr_of!(GDT) as u64,
+        base: crate::mm::link_to_direct_virt(core::ptr::addr_of!(GDT) as u64),
     }
 }
 
@@ -253,5 +254,17 @@ mod tests {
         let tss = TaskStateSegment::new();
         let iomap_base = tss.iomap_base;
         assert_eq!(iomap_base, core::mem::size_of::<TaskStateSegment>() as u16);
+    }
+
+    #[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
+    #[test]
+    fn gdt_and_tss_use_higher_half_aliases() {
+        let link_gdt = core::ptr::addr_of!(GDT) as u64;
+        let link_tss = core::ptr::addr_of!(TSS) as u64;
+        let virt_gdt = crate::mm::link_to_direct_virt(link_gdt);
+        let virt_tss = crate::mm::link_to_direct_virt(link_tss);
+        assert_ne!(link_gdt, virt_gdt);
+        assert_ne!(link_tss, virt_tss);
+        assert_eq!(virt_gdt, link_gdt.wrapping_add(crate::KERNEL_VIRT_BASE));
     }
 }

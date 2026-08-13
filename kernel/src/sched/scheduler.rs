@@ -3,7 +3,13 @@
 use super::task::{Task, TaskId, TaskState};
 #[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
 use crate::arch::x86_64::switch::CpuContext;
+#[cfg(not(feature = "host-stub"))]
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+#[cfg(not(feature = "host-stub"))]
 use core::ptr::NonNull;
+#[cfg(feature = "host-stub")]
+use core::ptr::NonNull;
+#[cfg(feature = "host-stub")]
 use core::sync::atomic::{AtomicU64, Ordering};
 
 #[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
@@ -36,6 +42,15 @@ static mut KERNEL_THREAD_COUNT: usize = 0;
 
 const MAX_KERNEL_THREADS: usize = 16;
 
+#[cfg(not(feature = "host-stub"))]
+static INIT_RING3_SINCE_TICK: AtomicU64 = AtomicU64::new(u64::MAX);
+#[cfg(not(feature = "host-stub"))]
+static INIT_WRITE_SEEN: AtomicBool = AtomicBool::new(false);
+#[cfg(not(feature = "host-stub"))]
+static INIT_WATCHDOG_LOGGED: AtomicBool = AtomicBool::new(false);
+/// Timer ticks (~100 Hz) before logging init watchdog timeout.
+#[cfg(not(feature = "host-stub"))]
+const INIT_WATCHDOG_TICKS: u64 = 100;
 #[cfg(not(feature = "host-stub"))]
 static mut SYSCALL_STACK_TOP: u64 = 0;
 
@@ -204,6 +219,50 @@ pub fn kernel_stack_top() -> u64 {
     // SAFETY: Written once during `init`.
     unsafe { SYSCALL_STACK_TOP }
 }
+
+/// Records that init performed a successful write syscall.
+#[cfg(not(feature = "host-stub"))]
+pub fn mark_init_write_seen() {
+    INIT_WRITE_SEEN.store(true, Ordering::Relaxed);
+}
+
+/// Timer-side watchdog: log once if ring-3 init never writes within ~1 s.
+#[cfg(not(feature = "host-stub"))]
+pub fn check_init_watchdog(current_tick: u64) {
+    if !current_task_is_user() {
+        return;
+    }
+    if INIT_WRITE_SEEN.load(Ordering::Relaxed) {
+        return;
+    }
+    let since = INIT_RING3_SINCE_TICK.load(Ordering::Relaxed);
+    if since == u64::MAX {
+        INIT_RING3_SINCE_TICK.store(current_tick, Ordering::Relaxed);
+        return;
+    }
+    if current_tick.saturating_sub(since) >= INIT_WATCHDOG_TICKS
+        && !INIT_WATCHDOG_LOGGED.swap(true, Ordering::Relaxed)
+    {
+        crate::serial::write_str("[init] watchdog timeout: no write syscall in 1s\r\n");
+        if let Some((rip, rsp, cr3)) = current_user_entry() {
+            crate::serial::write_str("[init] last known rip=0x");
+            debug_write_hex64(rip);
+            crate::serial::write_str(" rsp=0x");
+            debug_write_hex64(rsp);
+            crate::serial::write_str(" cr3=0x");
+            debug_write_hex64(cr3);
+            crate::serial::write_str("\r\n");
+        }
+    }
+}
+
+/// Host-stub no-ops.
+#[cfg(feature = "host-stub")]
+#[allow(dead_code)]
+pub fn mark_init_write_seen() {}
+#[cfg(feature = "host-stub")]
+#[allow(dead_code)]
+pub fn check_init_watchdog(_current_tick: u64) {}
 
 /// Host-stub placeholder stack top.
 #[cfg(feature = "host-stub")]
@@ -444,6 +503,9 @@ extern "C" fn user_task_trampoline() -> ! {
     debug_write_hex64(user_cr3);
     crate::serial::write_str("\r\n");
     crate::serial::write_str("[init] first user instruction\r\n");
+    crate::serial::write_str("[init] user rip=0x");
+    debug_write_hex64(user_rip);
+    crate::serial::write_str(" (expect syscall at +0x17)\r\n");
     // SAFETY: Validated during ELF load and task setup.
     unsafe {
         crate::arch::x86_64::enter_user_mode(user_rip, user_rsp, user_cr3);
