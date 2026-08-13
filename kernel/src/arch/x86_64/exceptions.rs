@@ -370,6 +370,9 @@ fn handle_double_fault(error_code: u64) -> ! {
 
 fn handle_general_protection(error_code: u64) -> ! {
     serial::write_str("EXCEPTION: #GP general protection\r\n");
+    serial::write_str("  CR3: ");
+    write_hex_u64(read_cr3());
+    serial::write_str("\r\n");
     write_error_code(error_code);
     halt_forever();
 }
@@ -379,6 +382,8 @@ fn handle_page_fault(error_code: u64) -> ! {
     serial::write_str("EXCEPTION: #PF page fault\r\n");
     serial::write_str("  CR2 (fault address): ");
     write_hex_u64(fault_addr);
+    serial::write_str("\r\n  CR3: ");
+    write_hex_u64(read_cr3());
     serial::write_str("\r\n  error code: ");
     write_hex_u64(error_code);
     serial::write_str("\r\n");
@@ -436,6 +441,15 @@ fn read_cr2() -> u64 {
     // SAFETY: Reading CR2 is safe at any time; it returns the faulting linear address.
     unsafe {
         core::arch::asm!("mov {}, cr2", out(reg) value, options(nomem, nostack));
+    }
+    value
+}
+
+fn read_cr3() -> u64 {
+    let value: u64;
+    // SAFETY: Reading CR3 is always valid in ring 0.
+    unsafe {
+        core::arch::asm!("mov {}, cr3", out(reg) value, options(nomem, nostack));
     }
     value
 }

@@ -24,8 +24,8 @@ pub mod layout;
 
 pub use layout::{
     kernel_code_descriptor, kernel_data_descriptor, user_code_descriptor, user_data_descriptor,
-    DescriptorTablePointer, GDT_ENTRY_COUNT, KERNEL_CODE_SELECTOR, KERNEL_DATA_SELECTOR, TSS_INDEX,
-    USER_CODE_SELECTOR, USER_DATA_SELECTOR,
+    DescriptorTablePointer, GDT_ENTRY_COUNT, KERNEL_CODE_SELECTOR, KERNEL_DATA_SELECTOR,
+    TSS_INDEX, TSS_SELECTOR, USER_CODE_SELECTOR, USER_DATA_SELECTOR,
 };
 
 #[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
@@ -122,6 +122,7 @@ pub fn init() {
         let pointer = gdt_pointer();
         load_gdt(&pointer);
         reload_segments();
+        load_task_register();
     }
 }
 
@@ -163,6 +164,17 @@ unsafe fn load_gdt(pointer: &DescriptorTablePointer) {
         "lgdt [{0}]",
         in(reg) pointer,
         options(readonly, nostack, preserves_flags)
+    );
+}
+
+#[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
+unsafe fn load_task_register() {
+    let tss_sel = u64::from(TSS_SELECTOR);
+    // SAFETY: TSS descriptor is present in the GDT loaded above.
+    core::arch::asm!(
+        "ltr {0:x}",
+        in(reg) tss_sel,
+        options(nomem, nostack, preserves_flags)
     );
 }
 

@@ -65,6 +65,7 @@ qemu-system-x86_64 \
     -machine q35 \
     -cpu max \
     -m 256M \
+    -no-reboot \
     -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
     -drive if=pflash,format=raw,file="$VARS_COPY" \
     -drive format=raw,file=fat:rw:"$ESP_DIR" \

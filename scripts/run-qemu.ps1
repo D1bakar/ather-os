@@ -65,6 +65,7 @@ $qemuArgs = @(
     "-machine", "q35",
     "-cpu", "max",
     "-m", "256M",
+    "-no-reboot",
     "-drive", "if=pflash,format=raw,readonly=on,file=$OvmfCode",
     "-drive", "if=pflash,format=raw,file=$VarsCopy",
     "-drive", "format=raw,file=fat:rw:$EspDir",
