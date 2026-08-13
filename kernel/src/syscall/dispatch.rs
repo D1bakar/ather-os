@@ -256,8 +256,8 @@ fn sys_getpid() -> i64 {
 /// Copies `len` bytes from a validated userspace address into `dest`.
 #[cfg(not(feature = "host-stub"))]
 fn copy_from_user(dest: &mut [u8], src: u64) -> Result<(), ErrorCode> {
-    let user_cr3 = process::with_current(|proc| proc.page_table_root.as_u64())
-        .ok_or(ErrorCode::Internal)?;
+    let user_cr3 =
+        process::with_current(|proc| proc.page_table_root.as_u64()).ok_or(ErrorCode::Internal)?;
     with_user_cr3(user_cr3, || {
         for (index, slot) in dest.iter_mut().enumerate() {
             // SAFETY: Active CR3 is the current process; `src` was validated above.
@@ -270,8 +270,8 @@ fn copy_from_user(dest: &mut [u8], src: u64) -> Result<(), ErrorCode> {
 /// Copies `data` into a validated userspace buffer.
 #[cfg(not(feature = "host-stub"))]
 fn copy_to_user(dest: u64, data: &[u8]) -> Result<(), ErrorCode> {
-    let user_cr3 = process::with_current(|proc| proc.page_table_root.as_u64())
-        .ok_or(ErrorCode::Internal)?;
+    let user_cr3 =
+        process::with_current(|proc| proc.page_table_root.as_u64()).ok_or(ErrorCode::Internal)?;
     with_user_cr3(user_cr3, || {
         for (index, &byte) in data.iter().enumerate() {
             // SAFETY: Active CR3 is the current process; `dest` was validated above.
@@ -296,8 +296,8 @@ fn with_user_cr3(user_cr3: u64, f: impl FnOnce()) -> Result<(), ErrorCode> {
 /// Copies a NUL-terminated string from userspace into `buf`.
 #[cfg(not(feature = "host-stub"))]
 fn copy_user_cstr(ptr: u64, buf: &mut [u8]) -> Result<usize, ErrorCode> {
-    let user_cr3 = process::with_current(|proc| proc.page_table_root.as_u64())
-        .ok_or(ErrorCode::Internal)?;
+    let user_cr3 =
+        process::with_current(|proc| proc.page_table_root.as_u64()).ok_or(ErrorCode::Internal)?;
     let mut len = None;
     with_user_cr3(user_cr3, || {
         for (index, slot) in buf.iter_mut().enumerate() {

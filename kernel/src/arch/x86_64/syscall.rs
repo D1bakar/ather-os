@@ -121,10 +121,7 @@ unsafe fn install_msrs() {
     let star_base = (USER_DATA_SELECTOR as u64).wrapping_sub(8);
     let star = (star_base << 48) | ((KERNEL_CODE_SELECTOR as u64) << 32);
     write_msr(MSR_STAR, star);
-    write_msr(
-        MSR_LSTAR,
-        crate::mm::link_to_direct_virt(syscall_entry_stub as u64),
-    );
+    write_msr(MSR_LSTAR, crate::mm::link_to_direct_virt(syscall_entry_stub as u64));
     write_msr(MSR_FMASK, FMASK_IF);
 }
 

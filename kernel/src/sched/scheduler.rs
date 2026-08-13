@@ -4,11 +4,11 @@ use super::task::{Task, TaskId, TaskState};
 #[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
 use crate::arch::x86_64::switch::CpuContext;
 #[cfg(not(feature = "host-stub"))]
-use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-#[cfg(not(feature = "host-stub"))]
 use core::ptr::NonNull;
 #[cfg(feature = "host-stub")]
 use core::ptr::NonNull;
+#[cfg(not(feature = "host-stub"))]
+use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 #[cfg(feature = "host-stub")]
 use core::sync::atomic::{AtomicU64, Ordering};
 

@@ -24,8 +24,8 @@ pub mod layout;
 
 pub use layout::{
     kernel_code_descriptor, kernel_data_descriptor, user_code_descriptor, user_data_descriptor,
-    DescriptorTablePointer, GDT_ENTRY_COUNT, KERNEL_CODE_SELECTOR, KERNEL_DATA_SELECTOR,
-    TSS_INDEX, TSS_SELECTOR, USER_CODE_SELECTOR, USER_DATA_SELECTOR,
+    DescriptorTablePointer, GDT_ENTRY_COUNT, KERNEL_CODE_SELECTOR, KERNEL_DATA_SELECTOR, TSS_INDEX,
+    TSS_SELECTOR, USER_CODE_SELECTOR, USER_DATA_SELECTOR,
 };
 
 #[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
@@ -143,8 +143,7 @@ unsafe fn populate_gdt() {
     GDT.entries[layout::USER_DATA_INDEX as usize] = user_data_descriptor();
     GDT.entries[layout::USER_CODE_INDEX as usize] = user_code_descriptor();
 
-    let tss_addr =
-        crate::mm::link_to_direct_virt(core::ptr::addr_of!(TSS) as u64);
+    let tss_addr = crate::mm::link_to_direct_virt(core::ptr::addr_of!(TSS) as u64);
     let (tss_low, tss_high) = tss_descriptor(tss_addr, tss_size());
     GDT.entries[TSS_INDEX as usize] = tss_low;
     GDT.entries[TSS_INDEX as usize + 1] = tss_high;

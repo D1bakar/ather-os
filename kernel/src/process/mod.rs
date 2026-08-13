@@ -160,12 +160,8 @@ impl Process {
             .union(CapabilityRights::EXECUTE)
             .union(CapabilityRights::DELEGATE)
             .union(CapabilityRights::DESTROY);
-        for kind in [
-            ObjectKind::File,
-            ObjectKind::Device,
-            ObjectKind::Memory,
-            ObjectKind::Process,
-        ] {
+        for kind in [ObjectKind::File, ObjectKind::Device, ObjectKind::Memory, ObjectKind::Process]
+        {
             let _ = self.capabilities.grant(kind, all);
         }
     }
