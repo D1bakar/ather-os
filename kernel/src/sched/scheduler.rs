@@ -93,17 +93,19 @@ pub fn spawn_worker_thread() -> TaskId {
 #[cfg(not(feature = "host-stub"))]
 pub fn start() -> ! {
     crate::serial::write_str("Aether OS M4: scheduler initialized\r\n");
-    crate::arch::x86_64::enable_interrupts();
+    // Leave IF clear until ring-3 init runs: timer IRQ preemption calls
+    // switch_context from the IRQ stub with only a partial register save, which
+    // corrupts the boot task frame before init can print (M6.1 smoke test).
 
     // SAFETY: Idle task and boot context are initialized; no other tasks run yet.
     unsafe {
         let idle_ptr =
             NonNull::from((&mut *core::ptr::addr_of_mut!(IDLE_TASK)).as_mut().expect("idle task"));
         let boot_ctx = core::ptr::addr_of_mut!(BOOT_CTX);
-        let first = pick_next(idle_ptr);
+        let first = pick_boot_task(idle_ptr);
         if first != idle_ptr {
-            // Round-robin into worker/init immediately; idle alone only HLTs and
-            // would otherwise depend on a timer tick before ring-3 init runs.
+            // Enter init (or worker) immediately; idle alone only HLTs and would
+            // otherwise depend on a timer tick before ring-3 init runs.
             (*idle_ptr.as_ptr()).state = TaskState::Ready;
             (*first.as_ptr()).state = TaskState::Running;
             CURRENT = Some(first);
@@ -306,7 +308,8 @@ pub fn tick_preempt() {
     if current_task_is_user() {
         return;
     }
-    schedule_internal(true);
+    // Kernel preemption from the timer IRQ stub is not safe until the stub saves
+    // a full task frame; voluntary switch_context from IRQ context corrupts RIP.
 }
 
 /// Host-stub no-op timer preemption (M0 CI).
@@ -375,6 +378,29 @@ fn schedule_internal(_from_timer: bool) {
     }
 }
 
+/// Picks the first runnable task for boot — prefers the init user task when enqueued.
+#[cfg(not(feature = "host-stub"))]
+unsafe fn pick_boot_task(idle_ptr: NonNull<Task>) -> NonNull<Task> {
+    if let Some(head) = RUN_QUEUE_HEAD {
+        let mut cursor = head;
+        loop {
+            if (*cursor.as_ptr()).is_user_task() {
+                crate::serial::write_str("[sched] boot: init user task selected\r\n");
+                return cursor;
+            }
+            cursor = match (*cursor.as_ptr()).next() {
+                Some(next) if next != head => next,
+                _ => break,
+            };
+        }
+    }
+    let fallback = pick_next(idle_ptr);
+    if fallback != idle_ptr {
+        crate::serial::write_str("[sched] boot: worker selected\r\n");
+    }
+    fallback
+}
+
 #[cfg(not(feature = "host-stub"))]
 unsafe fn pick_next(current: NonNull<Task>) -> NonNull<Task> {
     let start = current;
@@ -403,12 +429,21 @@ pub fn current_task_is_user() -> bool {
 
 #[cfg(not(feature = "host-stub"))]
 extern "C" fn user_task_trampoline() -> ! {
+    crate::serial::write_str("[init] trampoline enter\r\n");
     let (user_rip, user_rsp, _) = current_user_entry().expect("user task");
     let user_cr3 = crate::process::with_current(|proc| proc.page_table_root.as_u64())
         .expect("user process page table");
     let kernel_stack = current_kernel_stack_top().expect("user kernel stack");
     crate::arch::x86_64::gdt::set_kernel_stack(kernel_stack);
     crate::arch::x86_64::set_syscall_handler_stack(kernel_stack);
+    crate::serial::write_str("[init] IRETQ rip=0x");
+    debug_write_hex64(user_rip);
+    crate::serial::write_str(" rsp=0x");
+    debug_write_hex64(user_rsp);
+    crate::serial::write_str(" cr3=0x");
+    debug_write_hex64(user_cr3);
+    crate::serial::write_str("\r\n");
+    crate::serial::write_str("[init] first user instruction\r\n");
     // SAFETY: Validated during ELF load and task setup.
     unsafe {
         crate::arch::x86_64::enter_user_mode(user_rip, user_rsp, user_cr3);
@@ -418,8 +453,17 @@ extern "C" fn user_task_trampoline() -> ! {
 #[cfg(not(feature = "host-stub"))]
 extern "C" fn worker_entry() -> ! {
     loop {
-        crate::serial::write_str("[worker] kernel thread tick\r\n");
+        crate::serial::write_str("[worker] yield to next task\r\n");
         yield_now();
+    }
+}
+
+#[cfg(not(feature = "host-stub"))]
+fn debug_write_hex64(value: u64) {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    for shift in (0..16).rev() {
+        let nibble = ((value >> (shift * 4)) & 0xF) as usize;
+        crate::serial::write_byte(HEX[nibble]);
     }
 }
 

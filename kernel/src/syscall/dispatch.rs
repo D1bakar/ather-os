@@ -135,8 +135,10 @@ fn sys_write(args: SyscallArgs) -> i64 {
         let len = count.min(MAX_WRITE as u64) as usize;
         let mut scratch = [0u8; MAX_WRITE];
         if copy_from_user(&mut scratch[..len], buf).is_err() {
+            serial::write_str("[syscall] write copy_from_user failed\r\n");
             return ErrorCode::BadAddress.as_i64();
         }
+        serial::write_str("[syscall] write stdout\r\n");
         serial::write_str(core::str::from_utf8(&scratch[..len]).unwrap_or(""));
         len as i64
     }

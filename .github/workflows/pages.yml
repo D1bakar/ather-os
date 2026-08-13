@@ -50,7 +50,7 @@ jobs:
 
       - name: Capture reference serial log (host QEMU smoke)
         run: |
-          bash scripts/run-qemu.sh || true
+          TIMEOUT=60 bash scripts/run-qemu.sh || true
           if [ -f build/qemu-serial.log ]; then
             cp build/qemu-serial.log web/public/artifacts/reference-serial.log
             echo "Reference serial log captured ($(wc -l < build/qemu-serial.log) lines)"
