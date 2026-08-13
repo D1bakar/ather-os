@@ -213,6 +213,11 @@ pub fn allocate_task_id() -> TaskId {
     TaskId(NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed))
 }
 
+#[cfg(test)]
+pub(crate) unsafe fn set_run_queue_head_for_test(head: Option<NonNull<Task>>) {
+    RUN_QUEUE_HEAD = head;
+}
+
 /// Adds a runnable task to the round-robin queue tail.
 ///
 /// # Safety
@@ -222,20 +227,21 @@ pub unsafe fn enqueue(task: NonNull<Task>) {
     (*task.as_ptr()).state = TaskState::Ready;
 
     match RUN_QUEUE_HEAD {
-        None => RUN_QUEUE_HEAD = Some(task),
+        None => {
+            (*task.as_ptr()).set_next(Some(task));
+            RUN_QUEUE_HEAD = Some(task);
+        }
         Some(head) => {
-            let mut cursor = head;
-            loop {
-                let next = (*cursor.as_ptr()).next();
-                match next {
-                    None => {
-                        (*cursor.as_ptr()).set_next(Some(task));
-                        (*task.as_ptr()).set_next(Some(head));
-                        break;
-                    }
-                    Some(n) => cursor = n,
+            // Walk the ring until the predecessor of `head` (queue tail).
+            let mut tail = head;
+            while let Some(next) = (*tail.as_ptr()).next() {
+                if next == head {
+                    break;
                 }
+                tail = next;
             }
+            (*tail.as_ptr()).set_next(Some(task));
+            (*task.as_ptr()).set_next(Some(head));
         }
     }
 }
@@ -460,6 +466,27 @@ mod tests {
 
         assert_eq!(pick_next_task(idle_ptr), worker_ptr);
         assert_eq!(pick_next_task(worker_ptr), idle_ptr);
+    }
+
+    #[test]
+    fn enqueue_extends_circular_run_queue() {
+        let mut idle = Task::new(TaskId(1), 0, 0x1000, 0);
+        let mut worker = Task::new(TaskId(2), 0, 0x2000, 0);
+        let mut init = Task::new(TaskId(3), 0, 0x3000, 0);
+
+        let idle_ptr = NonNull::from(&mut idle);
+        let worker_ptr = NonNull::from(&mut worker);
+        let init_ptr = NonNull::from(&mut init);
+
+        unsafe {
+            set_run_queue_head_for_test(Some(idle_ptr));
+            enqueue(worker_ptr);
+            enqueue(init_ptr);
+        }
+
+        assert_eq!(idle.next(), Some(worker_ptr));
+        assert_eq!(worker.next(), Some(init_ptr));
+        assert_eq!(init.next(), Some(idle_ptr));
     }
 
     #[test]

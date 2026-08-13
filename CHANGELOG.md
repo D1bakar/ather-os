@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Ring-3 init boot (M6.1 completion):** User tasks keep the kernel CR3 while running the ring-3 trampoline; syscalls switch to the kernel page table for handler execution and restore the user CR3 on `SYSRET`; user stack top moved to `0x7ffc0000` (away from GOP framebuffer at `0x80000000`); spawn path logs progress on serial; audit ring-buffer unit test no longer races on the global log.
+- **Scheduler enqueue deadlock:** `enqueue()` assumed a `None`-terminated run queue, but idle/worker already form a ring; adding the init task looped forever (serial stopped at `M6: init enqueue user task`).
 - **CI bare-metal build:** Restore `kernel/linker.ld` rustflags when `RUSTFLAGS=-Dwarnings` overrides `.cargo/config.toml`.
 - **Boot loader PT_LOAD allocation:** Page-align ELF segment addresses before `AllocatePages` and skip re-allocation when a segment lies inside pages already mapped for an earlier PT_LOAD (fixes `failed to allocate pages for ELF PT_LOAD segment` on M6 kernels with embedded init ELF and unaligned `.data` at `0x107100`).
 - **Web serve broken on Windows:** `serve` package pointed at `web/` instead of `web/public/`; worker used absolute `/vm/worker.js` (404 locally and on GitHub Pages subpath).
