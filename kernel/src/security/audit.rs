@@ -119,10 +119,12 @@ mod tests {
 
     #[test]
     fn ring_buffer_overwrites_oldest() {
-        clear();
+        let mut log = AuditLog::new();
         for index in 0..=AUDIT_LOG_CAPACITY {
-            record_event(AuditEventKind::SyscallDenied, index as u32, 0, 0, -1);
+            let event = AuditRecord::new(0, AuditEventKind::SyscallDenied, index as u32)
+                .with_syscall(0, 0, -1);
+            log.record(event);
         }
-        assert_eq!(record_count(), AUDIT_LOG_CAPACITY);
+        assert_eq!(log.len(), AUDIT_LOG_CAPACITY);
     }
 }

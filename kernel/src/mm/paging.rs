@@ -21,6 +21,7 @@ static mut PDPT_IDENTITY: PageTable = PageTable::new();
 static mut PDPT_HIGHER: PageTable = PageTable::new();
 static mut PD_IDENTITY: PageTable = PageTable::new();
 static mut PD_HIGHER: PageTable = PageTable::new();
+static mut KERNEL_CR3: u64 = 0;
 
 /// Builds page tables, enables NX, and loads CR3.
 pub fn init() {
@@ -32,10 +33,19 @@ pub fn init() {
             PhysFrame::from_start_address(PhysAddr::new(core::ptr::addr_of!(PML4) as u64))
                 .expect("PML4 frame aligned");
         Cr3::write(pml4_frame, Cr3Flags::empty());
+        KERNEL_CR3 = pml4_frame.start_address().as_u64();
         apply_kernel_wx();
         map_heap_region();
     }
     crate::serial::write_str("  paging: CR3 loaded, W^X applied\r\n");
+}
+
+/// Returns the bootstrap kernel page-table root (physical CR3 value).
+#[cfg(not(feature = "host-stub"))]
+#[must_use]
+pub fn kernel_cr3() -> u64 {
+    // SAFETY: Written once during `init` before user tasks run.
+    unsafe { KERNEL_CR3 }
 }
 
 unsafe fn build_huge_page_maps() {

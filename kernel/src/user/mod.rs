@@ -20,6 +20,7 @@ pub fn start_userland() {
         return;
     }
 
+    serial::write_str("M6: spawning init ELF\r\n");
     match spawn_init(image) {
         Ok(pid) => {
             serial::write_str("M6: init process spawned pid=");
@@ -56,17 +57,20 @@ fn spawn_init(image: &[u8]) -> Result<crate::process::ProcessId, ElfError> {
 
 fn write_decimal(mut value: u32) {
     if value == 0 {
-        serial::write_byte(b'0');
+        serial::write_str("0");
         return;
     }
     let mut buf = [0u8; 10];
-    let mut index = buf.len();
+    let mut len = 0usize;
     while value > 0 {
-        index -= 1;
-        buf[index] = b'0' + (value % 10) as u8;
+        buf[len] = b'0' + (value % 10) as u8;
+        len += 1;
         value /= 10;
     }
-    serial::write_str(core::str::from_utf8(&buf[index..]).unwrap_or("?"));
+    for index in 0..len / 2 {
+        buf.swap(index, len - 1 - index);
+    }
+    serial::write_str(core::str::from_utf8(&buf[..len]).unwrap_or("?"));
 }
 
 /// Formats ELF errors for host tests.

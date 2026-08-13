@@ -19,6 +19,8 @@ const FMASK_IF: u64 = 1 << 9;
 
 /// Scratch space for the per-CPU kernel stack pointer loaded on syscall entry.
 static mut SYSCALL_KERNEL_STACK: u64 = 0;
+/// Bootstrap kernel CR3 loaded during syscall init (handler runs on kernel PT).
+static mut KERNEL_SYSCALL_CR3: u64 = 0;
 
 core::arch::global_asm!(
     ".global syscall_entry_stub",
@@ -27,11 +29,10 @@ core::arch::global_asm!(
     "swapgs",
     "mov gs:[0], rsp",
     "mov rsp, gs:[8]",
-    "push 0x23",
-    "push rcx",
-    "push 0x202",
-    "push 0x1B",
-    "push r11",
+    "mov rax, cr3",
+    "mov gs:[16], rax",
+    "mov rax, qword ptr [rip + {kernel_cr3}]",
+    "mov cr3, rax",
     "push r15",
     "push r14",
     "push r13",
@@ -45,9 +46,13 @@ core::arch::global_asm!(
     "push r8",
     "push r9",
     "push rax",
+    "push rcx",
+    "push r11",
     "mov rdi, rsp",
     "call syscall_dispatch_rust",
-    "mov [rsp], rax",
+    "mov [rsp + {frame_rax}], rax",
+    "pop r11",
+    "pop rcx",
     "pop rax",
     "pop r9",
     "pop r8",
@@ -61,11 +66,13 @@ core::arch::global_asm!(
     "pop r13",
     "pop r14",
     "pop r15",
-    "pop r11",
-    "add rsp, 32",
-    "pop rsp",
+    "mov rsp, gs:[0]",
+    "mov rax, gs:[16]",
+    "mov cr3, rax",
     "swapgs",
     "sysretq",
+    kernel_cr3 = sym KERNEL_SYSCALL_CR3,
+    frame_rax = const 16,
 );
 
 extern "sysv64" {
@@ -81,6 +88,7 @@ pub fn init(kernel_stack_top: u64) {
     // SAFETY: BSP-only early init; MSRs are not yet accessed concurrently.
     unsafe {
         SYSCALL_KERNEL_STACK = kernel_stack_top;
+        KERNEL_SYSCALL_CR3 = crate::mm::paging::kernel_cr3();
         install_msrs();
         install_gs_scratch();
     }
@@ -108,8 +116,8 @@ unsafe fn install_msrs() {
 
 #[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
 unsafe fn install_gs_scratch() {
-    // gs:[0] = saved user RSP, gs:[8] = kernel RSP for syscall entry
-    static mut SCRATCH: [u64; 2] = [0; 2];
+    // gs:[0] = saved user RSP, gs:[8] = kernel RSP, gs:[16] = saved user CR3
+    static mut SCRATCH: [u64; 3] = [0; 3];
     SCRATCH[1] = SYSCALL_KERNEL_STACK;
     write_gs_base(core::ptr::addr_of!(SCRATCH) as u64);
 }
@@ -177,6 +185,10 @@ extern "C" fn syscall_dispatch_rust(frame: *const SyscallTrapFrame) -> i64 {
 /// Saved register frame pushed by [`syscall_entry_stub`].
 #[repr(C)]
 pub struct SyscallTrapFrame {
+    /// User RFLAGS (R11 on SYSCALL entry).
+    pub r11: u64,
+    /// User return RIP (RCX on SYSCALL entry).
+    pub rcx: u64,
     /// Syscall number (RAX on entry).
     pub rax: u64,
     /// Argument / preserved registers.
@@ -192,11 +204,6 @@ pub struct SyscallTrapFrame {
     pub r13: u64,
     pub r14: u64,
     pub r15: u64,
-    pub r11: u64,
-    pub user_cs: u64,
-    pub user_rflags: u64,
-    pub user_rip: u64,
-    pub user_ss: u64,
 }
 
 #[cfg(test)]

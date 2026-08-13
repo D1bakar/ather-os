@@ -141,15 +141,17 @@ pub fn spawn_init_user_task(
     // SAFETY: Called once on the BSP before scheduling starts.
     unsafe {
         let stack_top = core::ptr::addr_of_mut!(INIT_USER_STACK) as u64 + KERNEL_STACK_SIZE as u64;
+        let kernel_cr3 = CpuContext::current_cr3();
         INIT_USER_TASK = Some(Task::new_user(
             task_id,
             user_task_trampoline as u64,
             stack_top,
-            cr3,
+            kernel_cr3,
             user_rip,
             user_rsp,
             pid,
         ));
+        let _ = cr3;
         let task_ptr = NonNull::from(
             (&mut *core::ptr::addr_of_mut!(INIT_USER_TASK)).as_mut().expect("init user task"),
         );
@@ -385,13 +387,15 @@ pub fn current_task_is_user() -> bool {
 
 #[cfg(not(feature = "host-stub"))]
 extern "C" fn user_task_trampoline() -> ! {
-    let (user_rip, user_rsp, cr3) = current_user_entry().expect("user task");
+    let (user_rip, user_rsp, _) = current_user_entry().expect("user task");
+    let user_cr3 = crate::process::with_current(|proc| proc.page_table_root.as_u64())
+        .expect("user process page table");
     crate::arch::x86_64::gdt::set_kernel_stack(
         current_kernel_stack_top().expect("user kernel stack"),
     );
     // SAFETY: Validated during ELF load and task setup.
     unsafe {
-        crate::arch::x86_64::enter_user_mode(user_rip, user_rsp, cr3);
+        crate::arch::x86_64::enter_user_mode(user_rip, user_rsp, user_cr3);
     }
 }
 

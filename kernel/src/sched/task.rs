@@ -71,12 +71,16 @@ impl Task {
     }
 
     /// Creates a user task that enters ring 3 via the kernel trampoline.
+    ///
+    /// The saved [`CpuContext::cr3`] is the **kernel** page-table root so the
+    /// trampoline can execute before [`crate::arch::x86_64::enter_user_mode`]
+    /// loads the process page table.
     #[must_use]
-    pub const fn new_user(
+    pub fn new_user(
         id: TaskId,
         trampoline: u64,
         kernel_stack_top: u64,
-        cr3: u64,
+        kernel_cr3: u64,
         user_rip: u64,
         user_rsp: u64,
         process: ProcessId,
@@ -84,7 +88,7 @@ impl Task {
         Self {
             id,
             state: TaskState::Ready,
-            context: CpuContext::for_entry(trampoline, kernel_stack_top, cr3),
+            context: CpuContext::for_entry(trampoline, kernel_stack_top, kernel_cr3),
             kernel_stack_top,
             process: Some(process),
             next: None,

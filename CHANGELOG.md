@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Ring-3 init boot (M6.1 completion):** User tasks keep the kernel CR3 while running the ring-3 trampoline; syscalls switch to the kernel page table for handler execution and restore the user CR3 on `SYSRET`; user stack top moved off `0x8000_0000` (GOP framebuffer) to `aether-types` canonical top; audit ring-buffer unit test no longer races on the global log.
 - **Boot loader PT_LOAD allocation:** Page-align ELF segment addresses before `AllocatePages` and skip re-allocation when a segment lies inside pages already mapped for an earlier PT_LOAD (fixes `failed to allocate pages for ELF PT_LOAD segment` on M6 kernels with embedded init ELF and unaligned `.data` at `0x107100`).
 - **Web serve broken on Windows:** `serve` package pointed at `web/` instead of `web/public/`; worker used absolute `/vm/worker.js` (404 locally and on GitHub Pages subpath).
 - **M6.1 QEMU-verified ring-3 boot:** `build-boot.sh` builds and embeds user init ELF before kernel compile; CI/QEMU scripts invoke shell helpers via `bash`; serial smoke test requires `Aether OS M6: userland started` and ring-3 `Aether init started`; `tests/qemu_boot.rs` asserts M6 init strings.
