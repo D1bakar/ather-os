@@ -127,25 +127,32 @@ unsafe fn install_msrs() {
 
 #[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
 unsafe fn install_gs_scratch() {
-    // gs:[0] = saved user RSP, gs:[8] = kernel RSP, gs:[16] = saved user CR3
+    // gs:[0] = saved user RSP, gs:[8] = kernel RSP, gs:[16] = saved user CR3.
+    // Use the higher-half direct map so these slots stay mapped while CR3 still
+    // points at the user page table during SYSCALL entry (identity-map addresses
+    // are not copied into user address spaces).
     SCRATCH[1] = SYSCALL_KERNEL_STACK;
-    write_gs_base(core::ptr::addr_of!(SCRATCH) as u64);
+    let scratch_gs = gs_scratch_base();
+    write_kernel_gs_base(scratch_gs);
+    write_user_gs_base(0);
+}
+
+/// Linear address of [`SCRATCH`] in the higher-half direct map (valid in user CR3).
+#[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
+fn gs_scratch_base() -> u64 {
+    crate::mm::phys_to_virt(core::ptr::addr_of!(SCRATCH) as u64)
 }
 
 #[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
-unsafe fn write_gs_base(base: u64) {
-    let low = base as u32;
-    let high = (base >> 32) as u32;
-    // IA32_KERNEL_GS_BASE
+unsafe fn write_kernel_gs_base(base: u64) {
+    // IA32_KERNEL_GS_BASE — active after swapgs on SYSCALL entry.
     write_msr(0xC000_0102, base);
-    // Also set IA32_GS_BASE for the syscall swapgs path
-    core::arch::asm!(
-        "wrmsr",
-        in("ecx") 0xC000_0101u32,
-        in("eax") low,
-        in("edx") high,
-        options(nomem, nostack)
-    );
+}
+
+#[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
+unsafe fn write_user_gs_base(base: u64) {
+    // IA32_GS_BASE — active in ring 3 and after swapgs on SYSRET.
+    write_msr(0xC000_0101, base);
 }
 
 #[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
@@ -188,6 +195,9 @@ pub const fn star_msr_value(kernel_cs: u16, user_data_selector: u16) -> u64 {
 extern "C" fn syscall_dispatch_rust(frame: *const SyscallTrapFrame) -> i64 {
     // SAFETY: The assembly stub passes a valid frame pointer on the kernel stack.
     let frame = unsafe { &*frame };
+    if frame.rax == aether_abi::SyscallNumber::Write.as_u64() {
+        crate::serial::write_str("[syscall] write entry\r\n");
+    }
     let args = SyscallArgs::new(frame.rdi, frame.rsi, frame.rdx, frame.r10, frame.r8, frame.r9);
     crate::syscall::dispatch(frame.rax, args)
 }

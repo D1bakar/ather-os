@@ -44,6 +44,10 @@ pub fn dispatch(number: u64, args: SyscallArgs) -> i64 {
 
     if let Err(code) = enforce_syscall_capabilities(desc) {
         record_event(AuditEventKind::CapabilityDenied, 0, number, args.arg0, code.as_i32());
+        #[cfg(not(feature = "host-stub"))]
+        if desc.number == SyscallNumber::Write {
+            serial::write_str("[syscall] write capability denied\r\n");
+        }
         return code.as_i64();
     }
 
