@@ -99,12 +99,22 @@ pub fn start() -> ! {
     unsafe {
         let idle_ptr =
             NonNull::from((&mut *core::ptr::addr_of_mut!(IDLE_TASK)).as_mut().expect("idle task"));
-        (*idle_ptr.as_ptr()).state = TaskState::Running;
-        CURRENT = Some(idle_ptr);
-
         let boot_ctx = core::ptr::addr_of_mut!(BOOT_CTX);
-        let idle_ctx = &(*idle_ptr.as_ptr()).context as *const CpuContext;
-        switch_context(boot_ctx, idle_ctx);
+        let first = pick_next(idle_ptr);
+        if first != idle_ptr {
+            // Round-robin into worker/init immediately; idle alone only HLTs and
+            // would otherwise depend on a timer tick before ring-3 init runs.
+            (*idle_ptr.as_ptr()).state = TaskState::Ready;
+            (*first.as_ptr()).state = TaskState::Running;
+            CURRENT = Some(first);
+            let first_ctx = &(*first.as_ptr()).context as *const CpuContext;
+            switch_context(boot_ctx, first_ctx);
+        } else {
+            (*idle_ptr.as_ptr()).state = TaskState::Running;
+            CURRENT = Some(idle_ptr);
+            let idle_ctx = &(*idle_ptr.as_ptr()).context as *const CpuContext;
+            switch_context(boot_ctx, idle_ctx);
+        }
     }
 
     loop {
@@ -396,9 +406,9 @@ extern "C" fn user_task_trampoline() -> ! {
     let (user_rip, user_rsp, _) = current_user_entry().expect("user task");
     let user_cr3 = crate::process::with_current(|proc| proc.page_table_root.as_u64())
         .expect("user process page table");
-    crate::arch::x86_64::gdt::set_kernel_stack(
-        current_kernel_stack_top().expect("user kernel stack"),
-    );
+    let kernel_stack = current_kernel_stack_top().expect("user kernel stack");
+    crate::arch::x86_64::gdt::set_kernel_stack(kernel_stack);
+    crate::arch::x86_64::set_syscall_handler_stack(kernel_stack);
     // SAFETY: Validated during ELF load and task setup.
     unsafe {
         crate::arch::x86_64::enter_user_mode(user_rip, user_rsp, user_cr3);
@@ -466,6 +476,25 @@ mod tests {
 
         assert_eq!(pick_next_task(idle_ptr), worker_ptr);
         assert_eq!(pick_next_task(worker_ptr), idle_ptr);
+    }
+
+    #[test]
+    fn boot_queue_starts_with_worker_after_idle() {
+        let mut idle = Task::new(TaskId(1), 0, 0x1000, 0);
+        let mut worker = Task::new(TaskId(2), 0, 0x2000, 0);
+        let mut init = Task::new(TaskId(3), 0, 0x3000, 0);
+
+        let idle_ptr = NonNull::from(&mut idle);
+        let worker_ptr = NonNull::from(&mut worker);
+        let init_ptr = NonNull::from(&mut init);
+
+        unsafe {
+            set_run_queue_head_for_test(Some(idle_ptr));
+            enqueue(worker_ptr);
+            enqueue(init_ptr);
+        }
+
+        assert_eq!(pick_next_task(idle_ptr), worker_ptr);
     }
 
     #[test]

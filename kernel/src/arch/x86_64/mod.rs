@@ -80,3 +80,9 @@ pub use timer::{EFFECTIVE_TIMER_HZ, PIT_BASE_HZ, TIMER_HZ, TIMER_IRQ, TIMER_VECT
 pub fn init_syscall(kernel_stack_top: u64) {
     syscall::init(kernel_stack_top);
 }
+
+/// Points the SYSCALL entry stub at `stack_top` for the current user task.
+#[cfg(not(feature = "host-stub"))]
+pub fn set_syscall_handler_stack(stack_top: u64) {
+    syscall::set_handler_stack(stack_top);
+}

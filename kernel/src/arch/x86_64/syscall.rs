@@ -21,6 +21,8 @@ const FMASK_IF: u64 = 1 << 9;
 static mut SYSCALL_KERNEL_STACK: u64 = 0;
 /// Bootstrap kernel CR3 loaded during syscall init (handler runs on kernel PT).
 static mut KERNEL_SYSCALL_CR3: u64 = 0;
+/// Per-CPU scratch slots referenced by the SYSCALL entry stub (`gs:[0..16]`).
+static mut SCRATCH: [u64; 3] = [0; 3];
 
 core::arch::global_asm!(
     ".global syscall_entry_stub",
@@ -94,6 +96,15 @@ pub fn init(kernel_stack_top: u64) {
     }
 }
 
+/// Updates the kernel stack used by the SYSCALL entry stub for the running task.
+pub fn set_handler_stack(stack_top: u64) {
+    // SAFETY: Called from the user-task trampoline before ring-3 entry.
+    unsafe {
+        SYSCALL_KERNEL_STACK = stack_top;
+        SCRATCH[1] = stack_top;
+    }
+}
+
 /// Returns the address of the SYSCALL entry stub (for IDT-less MSR path tests).
 #[cfg(test)]
 #[must_use]
@@ -117,7 +128,6 @@ unsafe fn install_msrs() {
 #[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
 unsafe fn install_gs_scratch() {
     // gs:[0] = saved user RSP, gs:[8] = kernel RSP, gs:[16] = saved user CR3
-    static mut SCRATCH: [u64; 3] = [0; 3];
     SCRATCH[1] = SYSCALL_KERNEL_STACK;
     write_gs_base(core::ptr::addr_of!(SCRATCH) as u64);
 }

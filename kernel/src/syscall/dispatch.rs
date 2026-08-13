@@ -250,20 +250,39 @@ fn sys_getpid() -> i64 {
 /// Copies `len` bytes from a validated userspace address into `dest`.
 #[cfg(not(feature = "host-stub"))]
 fn copy_from_user(dest: &mut [u8], src: u64) -> Result<(), ErrorCode> {
-    for (index, slot) in dest.iter_mut().enumerate() {
-        // SAFETY: `src` was validated as a canonical user buffer by dispatch.
-        let byte = unsafe { core::ptr::read_volatile((src + index as u64) as *const u8) };
-        *slot = byte;
-    }
-    Ok(())
+    let user_cr3 = process::with_current(|proc| proc.page_table_root.as_u64())
+        .ok_or(ErrorCode::Internal)?;
+    with_user_cr3(user_cr3, || {
+        for (index, slot) in dest.iter_mut().enumerate() {
+            // SAFETY: Active CR3 is the current process; `src` was validated above.
+            let byte = unsafe { core::ptr::read_volatile((src + index as u64) as *const u8) };
+            *slot = byte;
+        }
+    })
 }
 
 /// Copies `data` into a validated userspace buffer.
 #[cfg(not(feature = "host-stub"))]
 fn copy_to_user(dest: u64, data: &[u8]) -> Result<(), ErrorCode> {
-    for (index, &byte) in data.iter().enumerate() {
-        // SAFETY: `dest` was validated as a canonical user buffer by dispatch.
-        unsafe { core::ptr::write_volatile((dest + index as u64) as *mut u8, byte) };
+    let user_cr3 = process::with_current(|proc| proc.page_table_root.as_u64())
+        .ok_or(ErrorCode::Internal)?;
+    with_user_cr3(user_cr3, || {
+        for (index, &byte) in data.iter().enumerate() {
+            // SAFETY: Active CR3 is the current process; `dest` was validated above.
+            unsafe { core::ptr::write_volatile((dest + index as u64) as *mut u8, byte) };
+        }
+    })
+}
+
+/// Runs `f` while the current address space is temporarily switched to `user_cr3`.
+#[cfg(not(feature = "host-stub"))]
+fn with_user_cr3(user_cr3: u64, f: impl FnOnce()) -> Result<(), ErrorCode> {
+    let kernel_cr3 = crate::mm::paging::kernel_cr3();
+    // SAFETY: Syscall entry clears IF; restore kernel CR3 before returning to caller.
+    unsafe {
+        core::arch::asm!("mov cr3, {}", in(reg) user_cr3, options(nomem, nostack));
+        f();
+        core::arch::asm!("mov cr3, {}", in(reg) kernel_cr3, options(nomem, nostack));
     }
     Ok(())
 }
@@ -271,15 +290,21 @@ fn copy_to_user(dest: u64, data: &[u8]) -> Result<(), ErrorCode> {
 /// Copies a NUL-terminated string from userspace into `buf`.
 #[cfg(not(feature = "host-stub"))]
 fn copy_user_cstr(ptr: u64, buf: &mut [u8]) -> Result<usize, ErrorCode> {
-    for (index, slot) in buf.iter_mut().enumerate() {
-        // SAFETY: `ptr` was validated as a user C string by dispatch.
-        let byte = unsafe { core::ptr::read_volatile((ptr + index as u64) as *const u8) };
-        *slot = byte;
-        if byte == 0 {
-            return Ok(index);
+    let user_cr3 = process::with_current(|proc| proc.page_table_root.as_u64())
+        .ok_or(ErrorCode::Internal)?;
+    let mut len = None;
+    with_user_cr3(user_cr3, || {
+        for (index, slot) in buf.iter_mut().enumerate() {
+            // SAFETY: Active CR3 is the current process; `ptr` was validated above.
+            let byte = unsafe { core::ptr::read_volatile((ptr + index as u64) as *const u8) };
+            *slot = byte;
+            if byte == 0 {
+                len = Some(index);
+                break;
+            }
         }
-    }
-    Err(ErrorCode::InvalidArgument)
+    })?;
+    len.ok_or(ErrorCode::InvalidArgument)
 }
 
 fn sys_not_implemented() -> i64 {
