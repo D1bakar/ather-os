@@ -121,7 +121,10 @@ unsafe fn install_msrs() {
     let star_base = (USER_DATA_SELECTOR as u64).wrapping_sub(8);
     let star = (star_base << 48) | ((KERNEL_CODE_SELECTOR as u64) << 32);
     write_msr(MSR_STAR, star);
-    write_msr(MSR_LSTAR, syscall_entry_stub as u64);
+    write_msr(
+        MSR_LSTAR,
+        crate::mm::link_to_direct_virt(syscall_entry_stub as u64),
+    );
     write_msr(MSR_FMASK, FMASK_IF);
 }
 
@@ -140,7 +143,7 @@ unsafe fn install_gs_scratch() {
 /// Linear address of [`SCRATCH`] in the higher-half direct map (valid in user CR3).
 #[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
 fn gs_scratch_base() -> u64 {
-    crate::mm::phys_to_virt(core::ptr::addr_of!(SCRATCH) as u64)
+    crate::mm::link_to_direct_virt(core::ptr::addr_of!(SCRATCH) as u64)
 }
 
 #[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
@@ -239,5 +242,13 @@ mod tests {
         let base = (star >> 48) as u16;
         assert_eq!(base.wrapping_add(8), USER_DATA_SELECTOR);
         assert_eq!(base.wrapping_add(16), USER_CODE_SELECTOR);
+    }
+
+    #[test]
+    fn lstar_uses_higher_half_alias() {
+        let link = syscall_entry_stub as u64;
+        let lstar = crate::mm::link_to_direct_virt(link);
+        assert_ne!(link, lstar);
+        assert_eq!(lstar, link.wrapping_add(crate::KERNEL_VIRT_BASE));
     }
 }

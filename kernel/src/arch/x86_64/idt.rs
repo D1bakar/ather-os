@@ -34,6 +34,7 @@ impl IdtEntry {
     }
 
     fn set_handler(&mut self, handler: u64) {
+        let handler = crate::mm::link_to_direct_virt(handler);
         self.offset_low = handler as u16;
         self.selector = KERNEL_CODE_SELECTOR;
         self.ist = 0;
@@ -71,9 +72,8 @@ pub fn init() {
             IDT[vector as usize].set_handler(handler);
         }
 
-        let idt_ptr = core::ptr::addr_of!(IDT);
-        let idtr =
-            Idtr { limit: (size_of::<IdtEntry>() * IDT_LEN - 1) as u16, base: idt_ptr as u64 };
+        let idt_base = crate::mm::link_to_direct_virt(core::ptr::addr_of!(IDT) as u64);
+        let idtr = Idtr { limit: (size_of::<IdtEntry>() * IDT_LEN - 1) as u16, base: idt_base };
 
         core::arch::asm!(
             "lidt [{0}]",

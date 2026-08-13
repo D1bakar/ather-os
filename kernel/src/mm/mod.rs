@@ -43,6 +43,15 @@ pub const fn phys_to_virt(phys: u64) -> u64 {
     phys + KERNEL_DIRECT_MAP_BASE
 }
 
+/// Converts a link-time kernel address to its higher-half direct-map alias.
+///
+/// The kernel is linked in the identity map (`linker.ld`); user CR3 shares only
+/// the higher-half PML4 entry, so SYSCALL/IDT targets must use this alias.
+#[must_use]
+pub const fn link_to_direct_virt(link_addr: u64) -> u64 {
+    phys_to_virt(link_addr)
+}
+
 /// Translates a higher-half direct-map address to physical.
 #[must_use]
 pub const fn virt_to_phys(virt: u64) -> u64 {

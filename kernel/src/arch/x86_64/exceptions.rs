@@ -358,6 +358,9 @@ fn handle_breakpoint(error_code: u64) -> ! {
 
 fn handle_invalid_opcode(error_code: u64) -> ! {
     serial::write_str("EXCEPTION: #UD invalid opcode\r\n");
+    serial::write_str("  CR3: ");
+    write_hex_u64(read_cr3());
+    serial::write_str("\r\n");
     write_error_code(error_code);
     halt_forever();
 }
