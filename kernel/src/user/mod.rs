@@ -41,16 +41,20 @@ pub fn start_userland() {}
 
 #[cfg(not(feature = "host-stub"))]
 fn spawn_init(image: &[u8]) -> Result<crate::process::ProcessId, ElfError> {
+    serial::write_str("M6: init create addr space\r\n");
     let page_table = crate::mm::user::create_user_address_space().ok_or(ElfError::MapFailed)?;
+    serial::write_str("M6: init load ELF\r\n");
     let loaded = load_elf_user(page_table, image)?;
 
     let pid = sched::allocate_process_id();
     let task_id = sched::allocate_task_id();
 
+    serial::write_str("M6: init register process\r\n");
     let mut proc = Process::new(pid, page_table, task_id);
     proc.grant_default_io_caps();
     process::register(proc);
 
+    serial::write_str("M6: init enqueue user task\r\n");
     sched::spawn_init_user_task(task_id, pid, page_table.as_u64(), loaded.entry, loaded.stack_top);
     Ok(pid)
 }

@@ -40,6 +40,7 @@ jobs:
           - id: bare-metal-build
             name: bare-metal build
             run: |
+              export CARGO_TARGET_X86_64_UNKNOWN_NONE_RUSTFLAGS="-Dwarnings -C link-arg=-Tkernel/linker.ld -C relocation-model=static"
               cargo build -p aether-kernel --no-default-features --features bare-metal \
                 --target x86_64-unknown-none --release \
                 -Z build-std=core,alloc,compiler_builtins \

@@ -6,15 +6,16 @@
 
 use super::frame;
 use super::paging;
-use aether_types::{PhysicalAddress, USER_STACK_TOP as ABI_USER_STACK_TOP};
+use aether_types::PhysicalAddress;
 use x86_64::structures::paging::page_table::{PageTable, PageTableEntry, PageTableFlags};
 use x86_64::structures::paging::{PageSize, Size4KiB};
 use x86_64::VirtAddr;
 
 /// Top of the user stack (initial RSP).
 ///
-/// Avoids `0x8000_0000`, which often hosts the GOP framebuffer on QEMU/OVMF.
-pub const USER_STACK_TOP: u64 = ABI_USER_STACK_TOP;
+/// Placed well below `0x8000_0000` (typical GOP framebuffer) and away from the
+/// canonical user ceiling to keep early page-table walks cheap.
+pub const USER_STACK_TOP: u64 = 0x0000_0007_FFC0_0000;
 /// Bytes of user stack mapped below [`USER_STACK_TOP`].
 pub const USER_STACK_SIZE: u64 = 64 * 1024;
 
