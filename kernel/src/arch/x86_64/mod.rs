@@ -3,6 +3,9 @@
 pub mod gdt;
 
 #[cfg(not(feature = "host-stub"))]
+mod direct_call;
+
+#[cfg(not(feature = "host-stub"))]
 mod exceptions;
 
 #[cfg(not(feature = "host-stub"))]
@@ -27,6 +30,9 @@ mod syscall;
 
 #[cfg(not(feature = "host-stub"))]
 pub mod user_entry;
+
+#[cfg(not(feature = "host-stub"))]
+pub use exceptions::arm_user_exception_logging;
 
 #[cfg(not(feature = "host-stub"))]
 pub use user_entry::enter_user_mode;

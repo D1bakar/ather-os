@@ -1,6 +1,30 @@
 //! CPU exception and interrupt stub routines for the x86_64 IDT.
 
 use crate::serial;
+use core::sync::atomic::{AtomicBool, Ordering};
+
+use super::direct_call::DirectCallSlot;
+
+/// Set once ring-3 init is about to run — gates bring-up exception logs.
+static USER_ENTRY_ARMED: AtomicBool = AtomicBool::new(false);
+
+/// Higher-half aliases for Rust dispatchers called from IDT stubs under user CR3.
+static mut EXCEPTION_DISPATCH_VIRT: DirectCallSlot = DirectCallSlot::empty();
+static mut INTERRUPT_DISPATCH_VIRT: DirectCallSlot = DirectCallSlot::empty();
+
+/// Records direct-virt handler addresses for exception/interrupt stubs.
+pub(super) fn init_dispatch_targets() {
+    // SAFETY: BSP-only early init before user CR3 is active.
+    unsafe {
+        EXCEPTION_DISPATCH_VIRT.set(exception_dispatch as u64);
+        INTERRUPT_DISPATCH_VIRT.set(interrupt_dispatch as u64);
+    }
+}
+
+/// Arms ring-3 exception logging before the first user instruction runs.
+pub fn arm_user_exception_logging() {
+    USER_ENTRY_ARMED.store(true, Ordering::Relaxed);
+}
 
 /// Human-readable names for vectors 0–31 (CPU exceptions).
 const EXCEPTION_NAMES: [&str; 32] = [
@@ -60,7 +84,8 @@ core::arch::global_asm!(
     "mov rsi, [rsp + 8]",
     "mov rdx, [rsp + 16]",
     "add rsp, 16",
-    "call exception_dispatch",
+    "mov rax, qword ptr [rip + {exception_dispatch}]",
+    "call rax",
     "cli",
     "1:",
     "hlt",
@@ -69,7 +94,8 @@ core::arch::global_asm!(
     "mov rdi, [rsp]",
     "mov rsi, [rsp + 8]",
     "add rsp, 16",
-    "call interrupt_dispatch",
+    "mov rax, qword ptr [rip + {interrupt_dispatch}]",
+    "call rax",
     "cli",
     "2:",
     "hlt",
@@ -212,6 +238,8 @@ core::arch::global_asm!(
     ".globl interrupt_stub_47",
     "interrupt_stub_47:",
     "irq_stub 47",
+    exception_dispatch = sym EXCEPTION_DISPATCH_VIRT,
+    interrupt_dispatch = sym INTERRUPT_DISPATCH_VIRT,
 );
 
 /// Returns the address of the assembly stub for CPU exception `vector` (0–31).
@@ -329,6 +357,7 @@ extern "C" {
 #[no_mangle]
 extern "C" fn exception_dispatch(vector: u64, error_code: u64, fault_rip: u64) -> ! {
     log_ring3_exception_context(fault_rip);
+    log_user_bringup_exception(vector, fault_rip);
     match vector {
         0 => handle_divide_error(error_code),
         3 => handle_breakpoint(error_code),
@@ -414,6 +443,25 @@ fn handle_unhandled_interrupt(vector: u64) -> ! {
     write_hex_u64(vector);
     serial::write_str("\r\n");
     halt_forever();
+}
+
+fn log_user_bringup_exception(vector: u64, fault_rip: u64) {
+    if !USER_ENTRY_ARMED.load(Ordering::Relaxed) {
+        return;
+    }
+    let label = match vector {
+        6 => Some("#UD"),
+        13 => Some("#GP"),
+        14 => Some("#PF"),
+        _ => None,
+    };
+    if let Some(name) = label {
+        serial::write_str("[user-exn] ");
+        serial::write_str(name);
+        serial::write_str(" RIP=0x");
+        write_hex_u64(fault_rip);
+        serial::write_str("\r\n");
+    }
 }
 
 /// Logs ring-3 fault context (RIP/CS/CR3) for bring-up diagnostics.

@@ -503,6 +503,7 @@ extern "C" fn user_task_trampoline() -> ! {
     debug_write_hex64(user_cr3);
     crate::serial::write_str("\r\n");
     crate::serial::write_str("[init] first user instruction\r\n");
+    crate::arch::x86_64::arm_user_exception_logging();
     crate::serial::write_str("[init] user rip=0x");
     debug_write_hex64(user_rip);
     crate::serial::write_str(" (expect syscall at +0x17)\r\n");

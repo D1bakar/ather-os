@@ -1,5 +1,6 @@
 //! SYSCALL/SYSRET entry via model-specific registers (preferred x86_64 path).
 
+use super::direct_call::DirectCallSlot;
 use super::gdt::layout::{KERNEL_CODE_SELECTOR, USER_DATA_SELECTOR};
 use aether_abi::SyscallArgs;
 
@@ -23,6 +24,8 @@ static mut SYSCALL_KERNEL_STACK: u64 = 0;
 static mut KERNEL_SYSCALL_CR3: u64 = 0;
 /// Per-CPU scratch slots referenced by the SYSCALL entry stub (`gs:[0..16]`).
 static mut SCRATCH: [u64; 3] = [0; 3];
+/// Higher-half alias of [`syscall_dispatch_rust`] for calls under user CR3.
+static mut SYSCALL_DISPATCH_VIRT: DirectCallSlot = DirectCallSlot::empty();
 
 core::arch::global_asm!(
     ".global syscall_entry_stub",
@@ -51,7 +54,8 @@ core::arch::global_asm!(
     "push rcx",
     "push r11",
     "mov rdi, rsp",
-    "call syscall_dispatch_rust",
+    "mov rax, qword ptr [rip + {dispatch_virt}]",
+    "call rax",
     "mov [rsp + {frame_rax}], rax",
     "pop r11",
     "pop rcx",
@@ -74,6 +78,7 @@ core::arch::global_asm!(
     "swapgs",
     "sysretq",
     kernel_cr3 = sym KERNEL_SYSCALL_CR3,
+    dispatch_virt = sym SYSCALL_DISPATCH_VIRT,
     frame_rax = const 16,
 );
 
@@ -91,8 +96,10 @@ pub fn init(kernel_stack_top: u64) {
     unsafe {
         SYSCALL_KERNEL_STACK = kernel_stack_top;
         KERNEL_SYSCALL_CR3 = crate::mm::paging::kernel_cr3();
+        SYSCALL_DISPATCH_VIRT.set(syscall_dispatch_rust as u64);
         install_msrs();
         install_gs_scratch();
+        log_syscall_msrs();
     }
 }
 
@@ -135,6 +142,49 @@ unsafe fn install_gs_scratch() {
     let scratch_gs = gs_scratch_base();
     write_kernel_gs_base(scratch_gs);
     write_user_gs_base(0);
+}
+
+#[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
+unsafe fn log_syscall_msrs() {
+    let efer = read_msr(MSR_EFER);
+    let star = read_msr(MSR_STAR);
+    let lstar = read_msr(MSR_LSTAR);
+    let stub_link = syscall_entry_stub as u64;
+    let stub_virt = crate::mm::link_to_direct_virt(stub_link);
+
+    crate::serial::write_str("[syscall] init LSTAR=0x");
+    write_hex64(lstar);
+    crate::serial::write_str(" (stub link=0x");
+    write_hex64(stub_link);
+    crate::serial::write_str(" virt=0x");
+    write_hex64(stub_virt);
+    crate::serial::write_str(")\r\n");
+
+    crate::serial::write_str("[syscall] STAR=0x");
+    write_hex64(star);
+    crate::serial::write_str(" (sysret CS=0x");
+    write_hex64(((star >> 48) & 0xFFFF) + 16);
+    crate::serial::write_str(" SS=0x");
+    write_hex64(((star >> 48) & 0xFFFF) + 8);
+    crate::serial::write_str(")\r\n");
+
+    crate::serial::write_str("[syscall] EFER=0x");
+    write_hex64(efer);
+    crate::serial::write_str(" SCE=");
+    if efer & EFER_SCE != 0 {
+        crate::serial::write_str("1\r\n");
+    } else {
+        crate::serial::write_str("0\r\n");
+    }
+}
+
+#[cfg(all(not(feature = "host-stub"), target_arch = "x86_64"))]
+fn write_hex64(value: u64) {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    for shift in (0..16).rev() {
+        let nibble = ((value >> (shift * 4)) & 0xF) as usize;
+        crate::serial::write_byte(HEX[nibble]);
+    }
 }
 
 /// Linear address of [`SCRATCH`] in the higher-half direct map (valid in user CR3).

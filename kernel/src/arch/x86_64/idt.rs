@@ -72,6 +72,8 @@ pub fn init() {
             IDT[vector as usize].set_handler(handler);
         }
 
+        super::exceptions::init_dispatch_targets();
+
         let idt_base = crate::mm::link_to_direct_virt(core::ptr::addr_of!(IDT) as u64);
         let idtr = Idtr { limit: (size_of::<IdtEntry>() * IDT_LEN - 1) as u16, base: idt_base };
 

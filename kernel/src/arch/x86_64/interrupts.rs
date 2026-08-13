@@ -2,6 +2,7 @@
 
 use core::sync::atomic::{AtomicU64, Ordering};
 
+use super::direct_call::DirectCallSlot;
 use super::idt;
 use super::pic;
 use super::timer::{self, TIMER_IRQ};
@@ -9,6 +10,7 @@ use super::timer::{self, TIMER_IRQ};
 const LOG_INTERVAL_TICKS: u64 = 100;
 
 static TICKS: AtomicU64 = AtomicU64::new(0);
+static mut TIMER_HANDLER_VIRT: DirectCallSlot = DirectCallSlot::empty();
 
 core::arch::global_asm!(
     ".global timer_interrupt_stub",
@@ -22,7 +24,8 @@ core::arch::global_asm!(
     "push r9",
     "push r10",
     "push r11",
-    "call timer_handler",
+    "mov rax, qword ptr [rip + {timer_handler}]",
+    "call rax",
     "pop r11",
     "pop r10",
     "pop r9",
@@ -33,6 +36,7 @@ core::arch::global_asm!(
     "pop rcx",
     "pop rax",
     "iretq",
+    timer_handler = sym TIMER_HANDLER_VIRT,
 );
 
 extern "sysv64" {
@@ -41,6 +45,10 @@ extern "sysv64" {
 
 /// Installs the timer IRQ handler in the IDT (call after [`super::idt::init`]).
 pub fn register_handlers() {
+    // SAFETY: BSP-only early init before timer IRQs are enabled.
+    unsafe {
+        TIMER_HANDLER_VIRT.set(timer_handler as u64);
+    }
     idt::set_handler(timer::TIMER_VECTOR as usize, timer_interrupt_stub);
 }
 
