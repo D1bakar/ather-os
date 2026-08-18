@@ -86,7 +86,7 @@ aether-terminal = { path = "system/terminal", default-features = false }
 embedded-graphics = { version = "0.8", default-features = false, features = ["graphics"] }
 x86_64 = { version = "0.15", default-features = false, features = ["instructions"] }
 log = { version = "0.4", default-features = false }
-uefi = { version = "0.33", default-features = false, features = ["alloc", "logger"] }
+uefi = { version = "0.39", default-features = false, features = ["alloc", "logger"] }
 
 [profile.dev]
 panic = "abort"
